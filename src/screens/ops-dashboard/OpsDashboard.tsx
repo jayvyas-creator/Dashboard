@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Car,
   CalendarClock,
+  CalendarDays,
   Clock,
   Globe,
   Lock,
@@ -45,7 +46,7 @@ import {
 } from '@/components/dashboard/data'
 import { duration, int, kwh, usd } from '@/components/dashboard/format'
 import styles from './OpsDashboard.module.css'
-import { DEFAULT_RANGE, RANGES, rangeInsights } from './ranges'
+import { DATA_END, DATA_START, DEFAULT_RANGE, MAX_CUSTOM_DAYS, RANGES, customRange, parseISODate, rangeInsights, spanDays, toISODate } from './ranges'
 import type { Metric, RangeView } from './ranges'
 import { shown } from './sample'
 
@@ -144,7 +145,7 @@ function Chart({ metric, range }: { metric: Metric; range: RangeView }) {
                     </span>
                   </div>
                 </div>
-                <span className={styles.barLabel}>{range.dense && n > 24 && idx % 2 === 1 && p.label.length < 4 ? '' : p.label}</span>
+                <span className={styles.barLabel}>{(range.dense && n > 24 && idx % 2 === 1 && p.label.length < 4) || (range.unit === 'week' && n > 8 && idx % 2 === 1) ? '' : p.label}</span>
               </div>
             )
           })}
@@ -243,6 +244,11 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   const [mobile, setMobile] = useState(false)
   const [navOpen, setNavOpen] = useState(false)
   const [siteOpen, setSiteOpen] = useState(false)
+  const [custom, setCustom] = useState<{ start: string; end: string } | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [draft, setDraft] = useState({ start: '', end: '' })
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const pickerBtnRef = useRef<HTMLButtonElement>(null)
   const [detail, setDetail] = useState<'stations' | 'connectors' | 'errors' | 'perf' | null>(null)
   const [closing, setClosing] = useState(false)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -295,6 +301,25 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
       return !c
     })
   }
+  useEffect(() => {
+    if (!pickerOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPickerOpen(false)
+        pickerBtnRef.current?.focus()
+      }
+    }
+    const onDown = (e: MouseEvent) => {
+      if (!pickerRef.current?.contains(e.target as Node)) setPickerOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDown)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDown)
+    }
+  }, [pickerOpen])
+
   const [mountedAt] = useState(() => Date.now())
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -305,7 +330,25 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   // A feed that says live but has not updated for 2 minutes is not live.
   const pill: FeedStatus = status === 'live' && now - last > 120_000 ? 'stale' : status
   const slot = (k: Slot): SlotState => (status === 'loading' ? 'loading' : missing[k] ? 'missing' : 'ok')
-  const range = RANGES[period] ?? DEFAULT_RANGE
+  const range = custom ? customRange(parseISODate(custom.start), parseISODate(custom.end)) : (RANGES[period] ?? DEFAULT_RANGE)
+  const minDate = toISODate(DATA_START)
+  const maxDate = toISODate(DATA_END)
+  const draftOk = draft.start >= minDate && draft.end <= maxDate && draft.start !== '' && draft.end !== '' && draft.start <= draft.end
+  const draftDays = draftOk ? spanDays(parseISODate(draft.start), parseISODate(draft.end)) : 0
+  const draftError =
+    draft.start === '' || draft.end === '' ? ''
+    : draft.start < minDate || draft.end > maxDate ? 'Pick dates from 05/21/2026 to 11/21/2026.'
+    : draft.start > draft.end ? 'The start date must be on or before the end date.'
+    : draftDays > MAX_CUSTOM_DAYS ? `Pick a range of ${MAX_CUSTOM_DAYS} days or fewer.` : ''
+  const openPicker = () => {
+    setDraft(custom ?? { start: '', end: '' })
+    setPickerOpen((v) => !v)
+  }
+  const choosePreset = (o: string) => {
+    setPeriod(o)
+    setCustom(null)
+    setPickerOpen(false)
+  }
   const perfSlot = slot
   const m = range.metrics[metric]
   const maxType = Math.max(...connectorTypes.map((t) => t.count))
@@ -518,8 +561,51 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
             <div className={styles.zoneHead}>
               <div className={styles.zoneTitleGroup}>
                 <h2 id="perf-h" className={styles.zoneTitle}>Performance</h2>
-                <span className={styles.zoneSub}>{range.range}</span>
-                  {!range.hasPartial && <span className={styles.sampleTag}>Sample data</span>}
+                <div className={styles.rangePick} ref={pickerRef}>
+                  <button ref={pickerBtnRef} type="button" className={styles.rangeBtn} aria-haspopup="dialog" aria-expanded={pickerOpen} onClick={openPicker}>
+                    <CalendarDays size={14} strokeWidth={1.9} />
+                    {range.range}
+                    <ChevronDown size={14} strokeWidth={1.9} />
+                  </button>
+                  {pickerOpen && (
+                    <div className={styles.rangePop} role="dialog" aria-label="Choose date range">
+                      <ul className={styles.presetList}>
+                        {PERIOD.options.map((o) => (
+                          <li key={o}>
+                            <button type="button" className={!custom && o === period ? styles.presetActive : styles.preset} aria-pressed={!custom && o === period} onClick={() => choosePreset(o)}>
+                              {o}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      <form
+                        className={styles.customForm}
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          if (!draftOk || draftDays > MAX_CUSTOM_DAYS) return
+                          setCustom({ ...draft })
+                          setPickerOpen(false)
+                          pickerBtnRef.current?.focus()
+                        }}
+                      >
+                        <p className={styles.customTitle}>Custom range</p>
+                        <div className={styles.dateRow}>
+                          <label className={styles.dateField}>
+                            Start
+                            <input type="date" min={minDate} max={maxDate} value={draft.start} onChange={(e) => setDraft((d) => ({ ...d, start: e.target.value }))} />
+                          </label>
+                          <label className={styles.dateField}>
+                            End
+                            <input type="date" min={minDate} max={maxDate} value={draft.end} onChange={(e) => setDraft((d) => ({ ...d, end: e.target.value }))} />
+                          </label>
+                        </div>
+                        {draftError ? <p className={styles.dateError} role="alert">{draftError}</p> : <p className={styles.siteHint}>Custom ranges show sample data until the feed supports them.</p>}
+                        <button type="submit" className={styles.primaryBtn} disabled={!draftOk || draftDays > MAX_CUSTOM_DAYS}>Apply range</button>
+                      </form>
+                    </div>
+                  )}
+                </div>
+                {(custom || !range.hasPartial) && <span className={styles.sampleTag}>Sample data</span>}
                 <button type="button" className={styles.link} onClick={() => setDetail('perf')} aria-haspopup="dialog">{range.tableLink}</button>
               </div>
               <div className={styles.segmented} role="group" aria-label="Period">
@@ -527,9 +613,9 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                   <button
                     key={o}
                     type="button"
-                    className={o === period ? styles.segActive : styles.seg}
-                    onClick={() => setPeriod(o)}
-                    aria-pressed={o === period}
+                    className={!custom && o === period ? styles.segActive : styles.seg}
+                    onClick={() => choosePreset(o)}
+                    aria-pressed={!custom && o === period}
                   >
                     {o}
                   </button>
@@ -586,7 +672,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                           <li><span>{ins.changeLabel}</span><b className={ins.change >= 0 ? styles.up : styles.down}>{ins.change >= 0 ? '+' : ''}{ins.change.toFixed(1)}%</b></li>
                         )}
                         {range.hasPartial ? (
-                          <li className={styles.legend} title="Values are approximate"><i className={styles.swFull} />Full month<i className={styles.swPartial} />Partial month</li>
+                          <li className={styles.legend} title="Values are approximate"><i className={styles.swFull} />{range.unit === 'week' ? 'Full week' : 'Full month'}<i className={styles.swPartial} />{range.partialLabel ?? 'Partial month'}</li>
                         ) : null}
                       </ul>
                     )
@@ -723,7 +809,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
               )}
               {detail === 'perf' && (
                 <Gate s={slot('trend')} kind="body">
-                  <p className={styles.chartNote}>{m.label} by {range.tableNoun}.{range.hasPartial ? ' Partial months are marked.' : ''}</p>
+                  <p className={styles.chartNote}>{m.label} by {range.tableNoun}.{range.hasPartial ? (range.unit === 'week' ? ' The oldest week is partial.' : ' Partial months are marked.') : ''}</p>
                   <ul className={styles.types}>
                     {m.series.map((p) => (
                       <li key={p.key}>

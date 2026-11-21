@@ -36,14 +36,16 @@ export interface RangeView {
   /** Date range shown beside the Performance title. */
   range: string
   /** Word for one bar: month, day or hour. */
-  unit: 'month' | 'day' | 'hour'
+  unit: 'month' | 'week' | 'day' | 'hour'
   /** Label for the table link and drawer, e.g. "View monthly table". */
   tableLink: string
   tableNoun: string
   /** Many narrow bars: value labels move to hover and the gaps tighten. */
   dense: boolean
-  /** Whether bars can be partial (only the real monthly range has them). */
+  /** Whether bars can be partial (the real monthly range and custom weekly ranges). */
   hasPartial: boolean
+  /** Legend text for partial bars. Defaults to "Partial month". */
+  partialLabel?: string
   bestLabel: string
   avgLabel: string
   /** Compare the last `cur` buckets against the `prev` before them. */
@@ -195,3 +197,99 @@ export function rangeInsights(r: RangeView, metric: Metric) {
 }
 
 export const DEFAULT_RANGE: RangeView = sixMonths
+
+// ---- Custom range: ILLUSTRATIVE SAMPLE data, like the 30 day, 7 day and 24 hour ranges. ----
+/** First and last day the picker accepts. Matches the real 6 month range in data.ts. */
+export const DATA_START = new Date(2026, 4, 21)
+export const DATA_END = new Date(2026, 10, 21)
+export const MAX_CUSTOM_DAYS = 180
+
+const DAY_MS = 86_400_000
+const pad2 = (n: number) => String(n).padStart(2, '0')
+const WEEKDAY_BASE = [8, 11, 13, 13, 12, 11, 8] // Sun to Sat: weekday peaks, quieter weekends
+
+export const toISODate = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+export const parseISODate = (s: string) => {
+  const [y = 0, m = 1, d = 1] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+const fmtDate = (d: Date) => `${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}/${d.getFullYear()}`
+const dayNumber = (d: Date) => Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY_MS)
+const monthDay = (d: Date) => `${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}`
+
+/** Days in the range, inclusive. */
+export const spanDays = (start: Date, end: Date) => dayNumber(end) - dayNumber(start) + 1
+
+/**
+ * Up to 31 days draws one bar per day. Longer ranges draw one bar per week, counted back from
+ * the end date, so the only short week is the oldest one and it is marked partial.
+ */
+export function customRange(start: Date, end: Date): RangeView {
+  const days = spanDays(start, end)
+  const daily = Array.from({ length: days }, (_, i) => {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)
+    const n = dayNumber(d)
+    // Same date, same value, whatever range it is viewed in.
+    return { d, n, sessions: Math.max(4, (WEEKDAY_BASE[d.getDay()] ?? 10) + ((n * 7 + 3) % 5) - 2) }
+  })
+  const range = `${fmtDate(start)} – ${fmtDate(end)}`
+
+  if (days <= 31) {
+    const buckets = daily.map(({ d, n, sessions }, i) => ({
+      key: `c${n}`,
+      label: i === 0 || d.getDate() === 1 ? monthDay(d) : String(d.getDate()),
+      full: `${WEEKDAY[d.getDay()]}, ${monthDay(d)}`,
+      sessions,
+      idx: n,
+    }))
+    const weekly = days >= 14
+    return {
+      key: `custom:${toISODate(start)}:${toISODate(end)}`,
+      range,
+      unit: 'day',
+      tableLink: 'View daily table',
+      tableNoun: 'day',
+      dense: days > 10,
+      hasPartial: false,
+      bestLabel: 'Best day',
+      avgLabel: 'Daily average',
+      compare: weekly
+        ? { cur: 7, prev: 7, label: () => 'Last 7d vs prior 7d' }
+        : { cur: 1, prev: 1, label: (full) => `${full.at(-1)?.label ?? ''} vs ${full.at(-2)?.label ?? ''}` },
+      metrics: metricsFor(buckets),
+    }
+  }
+
+  const buckets: { key: string; label: string; full: string; sessions: number; idx: number; partial: boolean }[] = []
+  for (let hi = daily.length; hi > 0; hi -= 7) {
+    const chunk = daily.slice(Math.max(0, hi - 7), hi)
+    const first = chunk[0]!
+    const last = chunk[chunk.length - 1]!
+    buckets.unshift({
+      key: `w${first.n}`,
+      label: monthDay(first.d),
+      full: `${monthDay(first.d)} – ${monthDay(last.d)}`,
+      sessions: sum(chunk.map((c) => c.sessions)),
+      idx: first.n,
+      partial: chunk.length < 7,
+    })
+  }
+  const metrics = metricsFor(buckets)
+  ;(Object.keys(metrics) as Metric[]).forEach((k) => {
+    metrics[k].series = metrics[k].series.map((b, i) => ({ ...b, partial: buckets[i]?.partial || undefined }))
+  })
+  return {
+    key: `custom:${toISODate(start)}:${toISODate(end)}`,
+    range,
+    unit: 'week',
+    tableLink: 'View weekly table',
+    tableNoun: 'week',
+    dense: buckets.length > 10,
+    hasPartial: buckets.some((b) => b.partial),
+    partialLabel: 'Partial week',
+    bestLabel: 'Best week',
+    avgLabel: 'Full-week average',
+    compare: { cur: 1, prev: 1, label: () => 'Last week vs prior week' },
+    metrics,
+  }
+}
