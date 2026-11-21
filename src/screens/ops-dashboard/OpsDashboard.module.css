@@ -886,3 +886,9 @@ h1.title, .zoneTitle, .kpiLabel { text-wrap: balance; }
   .sitePop .siteOpt { min-height: 44px; }
   .siteSearch { min-height: 44px; font-size: 16px; }
 }
+
+/* Sessions: when the card is stretched to the row height, share the space between the two rows
+   instead of leaving it empty under them */
+.toneSess .bigStats { flex: 1; align-content: stretch; grid-auto-rows: 1fr; }
+.toneSess .bigStats > div { padding-top: 0; padding-bottom: 0; }
+.toneSess .bigStats > div:first-child { padding-top: 0; }
