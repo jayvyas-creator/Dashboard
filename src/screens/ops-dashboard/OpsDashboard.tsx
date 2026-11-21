@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bricolage_Grotesque } from 'next/font/google'
 import type { CSSProperties, ReactNode } from 'react'
 import { ConnectorIcon } from './ConnectorIcon'
@@ -34,21 +34,11 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import {
-  PERIOD,
-  SITES_SELECTED,
-  connectorTotal,
-  connectorTypes,
-  connectors,
-  errors,
-  live,
-  stations,
-} from '@/components/dashboard/data'
-import { duration, int, kwh, usd } from '@/components/dashboard/format'
+import { PERIOD } from '@/components/dashboard/data'
 import styles from './OpsDashboard.module.css'
-import { DATA_END, DATA_START, DEFAULT_RANGE, MAX_CUSTOM_DAYS, RANGES, customRange, parseISODate, rangeInsights, spanDays, toISODate } from './ranges'
+import { DATA_END, DATA_START, DEFAULT_RANGE, MAX_CUSTOM_DAYS, RANGES, customRange, parseISODate, rangeInsights, scaleRange, spanDays, toISODate } from './ranges'
 import type { Metric, RangeView } from './ranges'
-import { shown } from './sample'
+import { SITES, siteFacts, siteView } from './sites'
 
 const bricolage = Bricolage_Grotesque({ subsets: ['latin'], display: 'swap', variable: '--font-bricolage-local' })
 
@@ -92,7 +82,6 @@ function Ring({ value, total, base, arc, label, caption }: { value: number; tota
   )
 }
 
-const TYPE_TONES = ['#2459e0', '#5b8def', '#93b3f5', '#bcd0fa', '#dbe5fd']
 
 function niceCeil(max: number) {
   if (!(max > 0)) return 1
@@ -122,7 +111,7 @@ function Chart({ metric, range }: { metric: Metric; range: RangeView }) {
       </div>
       <div className={styles.plot}>
         <div className={styles.grid}>
-          {ticks.map((t, i) => (
+          {ticks.map((_t, i) => (
             <i key={i} />
           ))}
         </div>
@@ -244,6 +233,8 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   const [mobile, setMobile] = useState(false)
   const [navOpen, setNavOpen] = useState(false)
   const [siteOpen, setSiteOpen] = useState(false)
+  const [selectedSites, setSelectedSites] = useState<string[]>(() => SITES.map((x) => x.id))
+  const [siteQuery, setSiteQuery] = useState('')
   const [custom, setCustom] = useState<{ start: string; end: string } | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [draft, setDraft] = useState({ start: '', end: '' })
@@ -273,8 +264,8 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
       if (!items.length) return
       const first = items[0]
       const last = items[items.length - 1]
-      if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus() }
-      else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus() }
+      if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last?.focus() }
+      else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first?.focus() }
     }
     window.addEventListener('keydown', onKey)
     return () => { window.removeEventListener('keydown', onKey); opener?.focus?.() }
@@ -345,7 +336,17 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   // A feed that says live but has not updated for 2 minutes is not live.
   const pill: FeedStatus = status === 'live' && now - last > 120_000 ? 'stale' : status
   const slot = (k: Slot): SlotState => (status === 'loading' ? 'loading' : missing[k] ? 'missing' : 'ok')
-  const range = custom ? customRange(parseISODate(custom.start), parseISODate(custom.end)) : (RANGES[period] ?? DEFAULT_RANGE)
+  const selectedSet = useMemo(() => new Set(selectedSites), [selectedSites])
+  const view = useMemo(() => siteView(selectedSet), [selectedSet])
+  const { stations, connectors, connectorTotal, connectorTypes, live, errors, shown } = view
+  const allSites = selectedSites.length === SITES.length
+  const siteLabel = allSites ? `All sites · ${SITES.length} selected` : selectedSites.length === 1 ? (SITES.find((x) => x.id === selectedSites[0])?.name ?? '1 site') : `${selectedSites.length} of ${SITES.length} sites`
+  const visibleSites = SITES.filter((x) => x.name.toLowerCase().includes(siteQuery.trim().toLowerCase()))
+  const toggleSite = (id: string) =>
+    setSelectedSites((cur) => (cur.includes(id) ? (cur.length > 1 ? cur.filter((x) => x !== id) : cur) : SITES.map((x) => x.id).filter((x) => x === id || cur.includes(x))))
+  const toggleAllSites = () => setSelectedSites((cur) => (cur.length === SITES.length ? [SITES[0]!.id] : SITES.map((x) => x.id)))
+  const baseRange = custom ? customRange(parseISODate(custom.start), parseISODate(custom.end)) : (RANGES[period] ?? DEFAULT_RANGE)
+  const range = scaleRange(baseRange, view.share)
   const exportCsv = () => {
     const keys = Object.keys(range.metrics) as Metric[]
     const first = range.metrics[keys[0]!]
@@ -382,7 +383,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   }
   const perfSlot = slot
   const m = range.metrics[metric]
-  const maxType = Math.max(...connectorTypes.map((t) => t.count))
   const onlinePct = stations.total ? (stations.communication.online / stations.total) * 100 : 0
 
   const offlinePct = stations.total ? Math.round((stations.communication.offline / stations.total) * 100) : 0
@@ -442,15 +442,41 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
               <div className={styles.sitePick} ref={siteRef}>
                 <button type="button" className={styles.siteBtn} aria-haspopup="dialog" aria-expanded={siteOpen} onClick={() => setSiteOpen((v) => !v)}>
                   <Building2 size={14} strokeWidth={1.9} />
-                  All sites · {SITES_SELECTED} selected
+                  {siteLabel}
                   <ChevronDown size={14} strokeWidth={1.9} />
                 </button>
                 {siteOpen && (
                   <div className={styles.sitePop} role="dialog" aria-label="Select sites">
+                    <input
+                      type="search"
+                      className={styles.siteSearch}
+                      placeholder="Search sites"
+                      aria-label="Search sites"
+                      value={siteQuery}
+                      onChange={(e) => setSiteQuery(e.target.value)}
+                    />
                     <label className={styles.siteOpt}>
-                      <input type="checkbox" checked readOnly /> All sites <b>{SITES_SELECTED}</b>
+                      <input
+                        type="checkbox"
+                        checked={allSites}
+                        ref={(el) => { if (el) el.indeterminate = !allSites }}
+                        onChange={toggleAllSites}
+                      />
+                      All sites <b>{selectedSites.length} of {SITES.length}</b>
                     </label>
-                    <p className={styles.siteHint}>Individual site search and selection will appear here once the sites list is connected to this view.</p>
+                    <ul className={styles.siteList}>
+                      {visibleSites.map((x) => (
+                        <li key={x.id}>
+                          <label className={styles.siteOpt}>
+                            <input type="checkbox" checked={selectedSet.has(x.id)} onChange={() => toggleSite(x.id)} />
+                            {x.name}
+                            <b>{siteFacts(x.id).stations}</b>
+                          </label>
+                        </li>
+                      ))}
+                      {visibleSites.length === 0 && <li className={styles.siteHint}>No sites match “{siteQuery}”.</li>}
+                    </ul>
+                    <p className={styles.siteHint}>Numbers show stations per site. Site breakdowns are sample data until the feed reports sites. At least one site stays selected.</p>
                   </div>
                 )}
               </div>
@@ -719,7 +745,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
               </div>
               {errors.length > 0 && (
                 <div className={styles.errGroup}>
-                  <span>{errors[0].type}</span>
+                  <span>{errors[0]?.type}</span>
                 </div>
               )}
             </div>

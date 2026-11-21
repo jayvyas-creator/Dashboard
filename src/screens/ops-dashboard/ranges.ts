@@ -293,3 +293,27 @@ export function customRange(start: Date, end: Date): RangeView {
     metrics,
   }
 }
+
+/**
+ * Performance for a subset of sites: ILLUSTRATIVE, the feed has no per-site figures.
+ * Each bar is the all-sites value times the selected share of connectors. A share of 1 returns the range unchanged.
+ */
+export function scaleRange(range: RangeView, share: number): RangeView {
+  if (share >= 1) return range
+  const scale = (m: Metric): Bucket[] => range.metrics[m].series.map((b) => ({ ...b, value: Math.round(b.value * share) }))
+  const fees = scale('fees')
+  const sessions = scale('sessions')
+  const energy = scale('energy')
+  const f = sum(fees.map((b) => b.value))
+  const s = sum(sessions.map((b) => b.value))
+  const e = sum(energy.map((b) => b.value))
+  const tx = Math.max(1, Math.round(f / totals.avgCost))
+  return {
+    ...range,
+    metrics: {
+      fees: { ...range.metrics.fees, series: fees, total: usd(f).replace('.00', ''), sub: `${usd(f / tx)} avg · ${int(tx)} transactions` },
+      sessions: { ...range.metrics.sessions, series: sessions, total: int(s) },
+      energy: { ...range.metrics.energy, series: energy, total: int(e) + ' kWh', sub: `${kwh(s ? e / s : 0, 1)} kWh avg per session` },
+    },
+  }
+}
