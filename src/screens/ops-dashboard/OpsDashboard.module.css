@@ -852,3 +852,26 @@ h1.title, .zoneTitle, .kpiLabel { text-wrap: balance; }
   .rangeBtn, .dateField input, .customForm .primaryBtn { min-height: 44px; }
   .rangePop { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; max-width: none; }
 }
+
+/* Compact desktop: tighter spacing so every card still fits */
+@media (min-width: 821px) and (max-width: 1320px) {
+  .frame { grid-template-columns: 200px minmax(0, 1fr); }
+  .frameCollapsed { grid-template-columns: 64px minmax(0, 1fr); }
+  .sidebar { padding: 18px 10px 14px; }
+  .brand { padding: 0 8px 18px; }
+  .main { gap: 12px; padding: 18px 20px 22px; }
+  .zone { margin-top: 10px; gap: 12px; }
+  .card { padding: 14px 16px; }
+  .tileCard { padding: 14px 14px; }
+  .main .rowNow { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.8fr); gap: 12px; }
+  .rowNow .tileBody { gap: 12px; }
+  .rowNow .cardHead { margin-bottom: 12px; }
+  .rowNow .heroValue, .tileCard .tileStat .heroValue { font-size: 28px; }
+  .rowNow .grp { margin-top: 12px; padding-top: 12px; }
+  .tiles { gap: 8px; }
+  .rowPerf, .rowTrend, .rowDetail { gap: 12px; }
+  .zoneTitleGroup { gap: 10px; }
+}
+@media (min-width: 821px) and (max-width: 1240px) {
+  .main .rowNow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
