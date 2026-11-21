@@ -636,8 +636,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                     </div>
                   )}
                 </div>
-                {(custom || !range.hasPartial) && <span className={styles.sampleTag}>Sample data</span>}
-                <button type="button" className={styles.link} onClick={() => setDetail('perf')} aria-haspopup="dialog">{range.tableLink}</button>
               </div>
               <div className={styles.segmented} role="group" aria-label="Period">
                 {PERIOD.options.map((o) => (
