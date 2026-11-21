@@ -600,15 +600,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                   </button>
                   {pickerOpen && (
                     <div className={styles.rangePop} role="dialog" aria-label="Choose date range">
-                      <ul className={styles.presetList}>
-                        {PERIOD.options.map((o) => (
-                          <li key={o}>
-                            <button type="button" className={!custom && o === period ? styles.presetActive : styles.preset} aria-pressed={!custom && o === period} onClick={() => choosePreset(o)}>
-                              {o}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
                       <form
                         className={styles.customForm}
                         onSubmit={(e) => {
