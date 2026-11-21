@@ -239,6 +239,9 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   const [metric, setMetric] = useState<Metric>('fees')
   const [period, setPeriod] = useState(initialPeriod ?? PERIOD.label)
   const [collapsed, setCollapsed] = useState(false)
+  // Below 820px the sidebar becomes an off-canvas drawer opened from the top bar.
+  const [mobile, setMobile] = useState(false)
+  const [navOpen, setNavOpen] = useState(false)
   const [siteOpen, setSiteOpen] = useState(false)
   const [detail, setDetail] = useState<'stations' | 'connectors' | 'errors' | 'perf' | null>(null)
   const [closing, setClosing] = useState(false)
@@ -272,7 +275,21 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   useEffect(() => {
     try { setCollapsed(localStorage.getItem('eves.sidebar') === '1') } catch {}
   }, [])
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 820px)')
+    const sync = () => { setMobile(mql.matches); if (!mql.matches) setNavOpen(false) }
+    sync()
+    mql.addEventListener('change', sync)
+    return () => mql.removeEventListener('change', sync)
+  }, [])
+  useEffect(() => {
+    if (!navOpen) return
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setNavOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [navOpen])
   const toggleSidebar = () => {
+    if (mobile) { setNavOpen((o) => !o); return }
     setCollapsed((c) => {
       try { localStorage.setItem('eves.sidebar', c ? '0' : '1') } catch {}
       return !c
@@ -300,7 +317,8 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   return (
     <div className={`${styles.page} ${bricolage.variable}`}>
       <div className={collapsed ? styles.frameCollapsed : styles.frame}>
-        <aside className={collapsed ? styles.sidebarCollapsed : styles.sidebar}>
+        {mobile && navOpen && <div className={styles.navScrim} onClick={() => setNavOpen(false)} />}
+        <aside id="primary-nav" className={`${collapsed && !mobile ? styles.sidebarCollapsed : styles.sidebar} ${navOpen ? styles.drawerOpen : ''}`}>
           <div className={styles.brand}>
             <span className={styles.brandMark}>
               <Zap size={16} strokeWidth={2.4} />
@@ -310,7 +328,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
 
           <nav className={styles.nav} aria-label="Primary">
             {NAV.map(({ label, icon: Icon, active }) => (
-              <a key={label} href="#" onClick={(e) => e.preventDefault()} aria-current={active ? 'page' : undefined} title={label} aria-label={label} className={active ? styles.navItemActive : styles.navItem}>
+              <a key={label} href="#" onClick={(e) => { e.preventDefault(); setNavOpen(false) }} aria-current={active ? 'page' : undefined} title={label} aria-label={label} className={active ? styles.navItemActive : styles.navItem}>
                 <Icon size={16} strokeWidth={1.8} />
                 <span>{label}</span>
               </a>
@@ -324,8 +342,9 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
               type="button"
               className={styles.iconBtn}
               onClick={toggleSidebar}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              aria-expanded={!collapsed}
+              aria-label={(mobile ? navOpen : !collapsed) ? 'Collapse sidebar' : 'Expand sidebar'}
+              aria-expanded={mobile ? navOpen : !collapsed}
+              aria-controls="primary-nav"
             >
               <PanelLeft size={16} strokeWidth={1.8} />
             </button>
@@ -339,7 +358,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
             </nav>
             <span className={styles.topUser}>
               <span className={styles.avatar}>J</span>
-              Jay
+              <span className={styles.userName}>Jay</span>
             </span>
           </header>
         <main className={styles.main}>
