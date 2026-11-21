@@ -248,6 +248,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   const [pickerOpen, setPickerOpen] = useState(false)
   const [draft, setDraft] = useState({ start: '', end: '' })
   const pickerRef = useRef<HTMLDivElement>(null)
+  const siteRef = useRef<HTMLDivElement>(null)
   const pickerBtnRef = useRef<HTMLButtonElement>(null)
   const [detail, setDetail] = useState<'stations' | 'connectors' | 'errors' | 'perf' | null>(null)
   const [closing, setClosing] = useState(false)
@@ -302,6 +303,20 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
     })
   }
   useEffect(() => {
+    if (!siteOpen) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSiteOpen(false)
+    const onDown = (e: MouseEvent) => {
+      if (!siteRef.current?.contains(e.target as Node)) setSiteOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDown)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDown)
+    }
+  }, [siteOpen])
+
+  useEffect(() => {
     if (!pickerOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -331,6 +346,22 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   const pill: FeedStatus = status === 'live' && now - last > 120_000 ? 'stale' : status
   const slot = (k: Slot): SlotState => (status === 'loading' ? 'loading' : missing[k] ? 'missing' : 'ok')
   const range = custom ? customRange(parseISODate(custom.start), parseISODate(custom.end)) : (RANGES[period] ?? DEFAULT_RANGE)
+  const exportCsv = () => {
+    const keys = Object.keys(range.metrics) as Metric[]
+    const first = range.metrics[keys[0]!]
+    if (!first) return
+    const q = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`
+    const rows = [
+      [range.tableNoun, ...keys.map((k) => range.metrics[k].label)].map(q).join(','),
+      ...first.series.map((b, i) => [b.full, ...keys.map((k) => range.metrics[k].series[i]?.value ?? '')].map(q).join(',')),
+    ]
+    const url = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `performance-${range.range.replace(/[^0-9]+/g, '-').replace(/^-|-$/g, '')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
   const minDate = toISODate(DATA_START)
   const maxDate = toISODate(DATA_END)
   const draftOk = draft.start >= minDate && draft.end <= maxDate && draft.start !== '' && draft.end !== '' && draft.start <= draft.end
@@ -408,7 +439,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
           <header className={styles.header}>
             <div>
               <h1 className={styles.title}>Overview</h1>
-              <div className={styles.sitePick}>
+              <div className={styles.sitePick} ref={siteRef}>
                 <button type="button" className={styles.siteBtn} aria-haspopup="dialog" aria-expanded={siteOpen} onClick={() => setSiteOpen((v) => !v)}>
                   <Building2 size={14} strokeWidth={1.9} />
                   All sites · {SITES_SELECTED} selected
@@ -432,7 +463,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                   {pill !== 'loading' && <small> · updated {ago(now - last)}</small>}
                 </span>
               )}
-              <button type="button" className={styles.secondaryBtn}>
+              <button type="button" className={styles.secondaryBtn} onClick={exportCsv}>
                 <Download size={14} strokeWidth={2} /> Export
               </button>
             </div>
