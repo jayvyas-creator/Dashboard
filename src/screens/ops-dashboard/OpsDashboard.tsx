@@ -64,9 +64,9 @@ const DETAIL_TITLE = { stations: 'Stations', connectors: 'Connectors', errors: '
 const DETAIL_LINK = { stations: 'Open Charging Stations', connectors: 'Open Charging Stations', errors: 'Open Logs', perf: 'Open Statistics' }
 
 const MCOLOR: Record<Metric, Record<string, string>> = {
-  fees: { '--m': '#0f766e', '--m-soft': '#e3f4f1', '--m-mid': '#9fd8d0' },
-  sessions: { '--m': '#0f766e', '--m-soft': '#e3f4f1', '--m-mid': '#9fd8d0' },
-  energy: { '--m': '#0f766e', '--m-soft': '#e3f4f1', '--m-mid': '#9fd8d0' },
+  fees: { '--m': '#35746e', '--m-soft': '#e6f3f1', '--m-mid': '#aec7c5' },
+  sessions: { '--m': '#684bd8', '--m-soft': '#f0edfb', '--m-mid': '#c3b7ef' },
+  energy: { '--m': '#b55d26', '--m-soft': '#f8efe9', '--m-mid': '#e1bea8' },
 }
 
 function Ring({ value, total, base, arc, label, sub, caption }: { value: number; total: number; base: string; arc: string; label: string; sub: string; caption: string }) {
@@ -274,6 +274,50 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   useEffect(() => {
     try { setCollapsed(localStorage.getItem('eves.sidebar') === '1') } catch {}
   }, [])
+  // The view lives in the URL (?range=…&from=…&to=…&sites=…) so a link reproduces it.
+  const [urlReady, setUrlReady] = useState(false)
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search)
+      const r = q.get('range')
+      const from = q.get('from') ?? ''
+      const to = q.get('to') ?? ''
+      const iso = /^\d{4}-\d{2}-\d{2}$/
+      if (iso.test(from) && iso.test(to) && from >= toISODate(DATA_START) && to <= toISODate(DATA_END) && from <= to && spanDays(parseISODate(from), parseISODate(to)) <= MAX_CUSTOM_DAYS) setCustom({ start: from, end: to })
+      else if (r && RANGES[r]) setPeriod(r)
+      const ids = (q.get('sites') ?? '').split(',').filter((id) => SITES.some((x) => x.id === id))
+      if (ids.length) setSelectedSites(SITES.map((x) => x.id).filter((id) => ids.includes(id)))
+    } catch {}
+    setUrlReady(true)
+  }, [])
+  useEffect(() => {
+    if (!urlReady) return
+    try {
+      const q = new URLSearchParams()
+      if (custom) { q.set('from', custom.start); q.set('to', custom.end) }
+      else if (period !== (initialPeriod ?? PERIOD.label)) q.set('range', period)
+      if (selectedSites.length < SITES.length) q.set('sites', selectedSites.join(','))
+      const qs = q.toString()
+      window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`)
+    } catch {}
+  }, [urlReady, period, custom, selectedSites, initialPeriod])
+  // Shortcuts: "/" opens site search, "e" jumps to Errors.
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.metaKey || ev.ctrlKey || ev.altKey) return
+      const t = ev.target as HTMLElement | null
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
+      if (ev.key === '/') {
+        ev.preventDefault()
+        setSiteOpen(true)
+        requestAnimationFrame(() => siteRef.current?.querySelector<HTMLInputElement>('input[type="search"], input[type="text"], input:not([type])')?.focus())
+      } else if (ev.key === 'e') {
+        document.getElementById('err-h')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 820px)')
     const sync = () => { setMobile(mql.matches); if (!mql.matches) setNavOpen(false) }
@@ -386,6 +430,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   const m = range.metrics[metric]
   const onlinePct = stations.total ? (stations.communication.online / stations.total) * 100 : 0
 
+  const level = (stations.communication.offline / Math.max(1, stations.total)) * 100 >= 25 ? 'Critical' : (stations.communication.offline / Math.max(1, stations.total)) * 100 >= 5 ? 'Degraded' : 'Normal'
   const offlinePct = stations.total ? Math.round((stations.communication.offline / stations.total) * 100) : 0
   const availPct = connectorTotal ? (connectors.available / connectorTotal) * 100 : 0
 
@@ -517,7 +562,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
             <div className={styles.attention} role="status">
               <TriangleAlert size={16} strokeWidth={1.9} />
               <span>
-                <b>{stations.communication.offline} of {stations.total}</b> stations offline
+                <b>{level}</b> · <b>{stations.communication.offline} of {stations.total}</b> stations offline
                 {errors.length > 0 && <> · <b>{errors.length}</b> recent {errors.length === 1 ? 'error' : 'errors'}</>}
               </span>
               {errors.length > 0 && (
