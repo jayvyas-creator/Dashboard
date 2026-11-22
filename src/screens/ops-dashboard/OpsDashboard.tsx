@@ -34,7 +34,8 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { PERIOD, mapPins } from '@/components/dashboard/data'
+import { PERIOD } from '@/components/dashboard/data'
+import dynamic from 'next/dynamic'
 import styles from './OpsDashboard.module.css'
 import { DATA_END, DATA_START, DEFAULT_RANGE, MAX_CUSTOM_DAYS, RANGES, customRange, parseISODate, rangeInsights, scaleRange, spanDays, toISODate } from './ranges'
 import type { Metric, RangeView } from './ranges'
@@ -103,6 +104,8 @@ function Ring({ value, total, base, arc, label, sub, caption }: { value: number;
 }
 
 
+const StationMapLive = dynamic(() => import('./StationMapLive'), { ssr: false, loading: () => <div className={styles.mapLoading} aria-hidden /> })
+
 function niceCeil(max: number) {
   if (!(max > 0)) return 1
   const step = Math.pow(10, Math.floor(Math.log10(max)))
@@ -114,10 +117,12 @@ function niceCeil(max: number) {
 function Chart({ metric, range }: { metric: Metric; range: RangeView }) {
   const { series, fmt } = range.metrics[metric]
   const peak = Math.max(...series.map((p) => p.value))
-  const raw = niceCeil(peak)
-  // Small ranges (sessions or dollars per hour) need a top divisible by 4 so the gridlines are whole numbers.
-  const top = raw < 100 ? Math.max(4, Math.ceil(raw / 4) * 4) : raw
-  const ticks = [1, 0.75, 0.5, 0.25, 0].map((t) => Math.round(top * t * 100) / 100)
+  // Round gridline steps (1, 2, 2.5, 5 x 10^k) with 3 to 5 intervals, so labels never read 225 or 75.
+  const steps = Array.from({ length: 8 }, (_, k) => [1, 2, 2.5, 5].map((m) => m * Math.pow(10, k))).flat()
+  const step = steps.find((st) => Math.ceil(peak / st) <= 5) ?? niceCeil(peak) / 4
+  const intervals = Math.max(3, Math.ceil(peak / step))
+  const top = step * intervals
+  const ticks = Array.from({ length: intervals + 1 }, (_, i) => Math.round((intervals - i) * step * 100) / 100)
   const short = (n: number) => (n >= 1000 ? `${n / 1000}K` : String(n))
   const ins = rangeInsights(range, metric)
   const n = series.length
@@ -820,48 +825,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
               </div>
             </div>
             <div className={styles.mapCard}>
-              <svg viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Map of station locations, online or offline">
-                <rect x="-3000" y="-3000" width="6800" height="6400" fill="#f4f5f8" />
-                <g fill="#e4efe6"><rect x="470" y="190" width="120" height="56" rx="14" /><rect x="20" y="170" width="70" height="60" rx="14" /><rect x="640" y="20" width="110" height="70" rx="14" /><rect x="300" y="290" width="90" height="50" rx="14" /></g>
-                <path d="M-3000 250 C-200 270 60 300 160 340 C230 370 260 400 290 3400 L-3000 3400 Z" fill="#dce9f6" stroke="#c9dcf0" strokeWidth="2" />
-                <g stroke="#fff" strokeWidth="9" fill="none" strokeLinecap="round">
-                  <path d="M-3000 150 C200 140 400 190 3800 170" />
-                  <path d="M260 -3000 C280 120 330 250 380 3400" />
-                  <path d="M520 -3000 C500 140 560 260 640 3400" />
-                  <path d="M120 3400 C260 300 420 250 3800 260" />
-                </g>
-                <g stroke="#e6e9ef" strokeWidth="2" fill="none">
-                  <path d="M-3000 80 L3800 60" />
-                  <path d="M-3000 330 L3800 350" />
-                  <path d="M150 -3000 L120 3400" />
-                  <path d="M430 -3000 L450 3400" />
-                  <path d="M700 -3000 L720 3400" />
-                </g>
-                <g fill="#6f7888" fontSize="12" fontWeight="500" stroke="#f4f5f8" strokeWidth="4" paintOrder="stroke" strokeLinejoin="round">
-                  <text x="150" y="85">Calabasas</text>
-                  <text x="410" y="215">Los Angeles</text>
-                  <text x="520" y="130">Pasadena</text>
-                  <text x="215" y="300">Santa Monica</text>
-                  <text x="560" y="345">Anaheim</text>
-                </g>
-                {mapPins.map((pin) => (
-                  <g key={pin.id} transform={`translate(${pin.x} ${pin.y})`} className={styles.mapPin}>
-                    <title>{pin.status === 'online' ? 'Online station' : 'Offline station'}</title>
-                    <circle r="17" fill={pin.status === 'online' ? 'var(--good)' : 'var(--bad)'} opacity="0.14" />
-                    {pin.status === 'online' ? (
-                      <>
-                        <circle r="9" fill="var(--good)" stroke="#fff" strokeWidth="2.5" />
-                        <path d="M-3.5 0.5 L-1 3 L4 -2.5" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                      </>
-                    ) : (
-                      <>
-                        <rect x="-8" y="-8" width="16" height="16" rx="3" transform="rotate(45)" fill="var(--bad)" stroke="#fff" strokeWidth="2.5" />
-                        <path d="M-4 0 L4 0" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-                      </>
-                    )}
-                  </g>
-                ))}
-              </svg>
+              <StationMapLive />
               <ul className={styles.mapLegend} aria-label="Map key">
                 <li><svg width="14" height="14" viewBox="-11 -11 22 22" aria-hidden><circle r="9" fill="var(--good)" /><path d="M-4 0.5 L-1 3.5 L4.5 -3" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>Online</li>
                 <li><svg width="14" height="14" viewBox="-11 -11 22 22" aria-hidden><rect x="-7" y="-7" width="14" height="14" rx="2" transform="rotate(45)" fill="var(--bad)" /><path d="M-4 0 L4 0" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" /></svg>Offline</li>
