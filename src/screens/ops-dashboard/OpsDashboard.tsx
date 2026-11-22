@@ -126,7 +126,7 @@ function Chart({ metric, range }: { metric: Metric; range: RangeView }) {
     <div className={styles.chart} style={MCOLOR[metric] as CSSProperties}>
       <div className={styles.yAxis}>
         {ticks.map((t, i) => (
-          <span key={i}>{short(t)}</span>
+          <span key={i}>{metric === 'fees' ? '$' : ''}{short(t)}</span>
         ))}
       </div>
       <div className={styles.plot}>

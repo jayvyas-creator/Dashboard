@@ -1055,3 +1055,6 @@ h1.title, .zoneTitle, .kpiLabel { text-wrap: balance; }
 .errTimes { background: var(--surface); }
 .errTimes li { padding: 11px 14px; }
 .mapErrRow .errAll { margin-top: auto; }
+/* y-axis: room for "$3.75K" without touching the gridlines */
+.chart { grid-template-columns: 44px 1fr; }
+.yAxis { padding-right: 6px; white-space: nowrap; }
