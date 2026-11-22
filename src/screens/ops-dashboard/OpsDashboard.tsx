@@ -65,11 +65,11 @@ const DETAIL_LINK = { stations: 'Open Charging Stations', connectors: 'Open Char
 
 const MCOLOR: Record<Metric, Record<string, string>> = {
   fees: { '--m': '#0f766e', '--m-soft': '#e3f4f1', '--m-mid': '#9fd8d0' },
-  sessions: { '--m': '#6d4ae0', '--m-soft': '#efeafd', '--m-mid': '#c9bcf6' },
-  energy: { '--m': '#c2570c', '--m-soft': '#fdeede', '--m-mid': '#f3c79d' },
+  sessions: { '--m': '#0f766e', '--m-soft': '#e3f4f1', '--m-mid': '#9fd8d0' },
+  energy: { '--m': '#0f766e', '--m-soft': '#e3f4f1', '--m-mid': '#9fd8d0' },
 }
 
-function Ring({ value, total, base, arc, label, caption }: { value: number; total: number; base: string; arc: string; label: string; caption: string }) {
+function Ring({ value, total, base, arc, label, sub, caption }: { value: number; total: number; base: string; arc: string; label: string; sub: string; caption: string }) {
   const r = 38
   const c = 2 * Math.PI * r
   const frac = total > 0 ? value / total : 0
@@ -77,7 +77,8 @@ function Ring({ value, total, base, arc, label, caption }: { value: number; tota
     <svg className={styles.ring} viewBox="0 0 96 96" role="img" aria-label={caption}>
       <circle cx="48" cy="48" r={r} fill="none" stroke={base} strokeWidth="11" />
       <circle cx="48" cy="48" r={r} fill="none" stroke={arc} strokeWidth="11" strokeLinecap="butt" className={styles.ringArc} strokeDasharray={`${frac * c} ${c}`} transform="rotate(-90 48 48)" />
-      <text x="48" y="48" textAnchor="middle" dominantBaseline="central" className={styles.ringText} fontSize="17">{label}</text>
+      <text x="48" y="44" textAnchor="middle" dominantBaseline="central" className={styles.ringText} fontSize="17">{label}</text>
+      <text x="48" y="60" textAnchor="middle" dominantBaseline="central" className={styles.ringSub}>{sub}</text>
     </svg>
   )
 }
@@ -402,7 +403,12 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
 
           <nav className={styles.nav} aria-label="Primary">
             {NAV.map(({ label, icon: Icon, active }) => (
-              <a key={label} href="#" onClick={(e) => { e.preventDefault(); setNavOpen(false) }} aria-current={active ? 'page' : undefined} title={label} aria-label={label} className={active ? styles.navItemActive : styles.navItem}>
+              !active ? (
+                <span key={label} className={`${styles.navItem} ${styles.navSoon}`} aria-disabled="true" title={`${label} · coming soon`}>
+                  <Icon size={16} strokeWidth={1.8} />
+                  <span>{label}</span>
+                </span>
+              ) : <a key={label} href="#" onClick={(e) => { e.preventDefault(); setNavOpen(false) }} aria-current={active ? 'page' : undefined} title={label} aria-label={label} className={active ? styles.navItemActive : styles.navItem}>
                 <Icon size={16} strokeWidth={1.8} />
                 <span>{label}</span>
               </a>
@@ -507,6 +513,19 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
             </div>
           )}
 
+          {(stations.communication.offline > 0 || errors.length > 0) && (
+            <div className={styles.attention} role="status">
+              <TriangleAlert size={16} strokeWidth={1.9} />
+              <span>
+                <b>{stations.communication.offline} of {stations.total}</b> stations offline
+                {errors.length > 0 && <> · <b>{errors.length}</b> recent {errors.length === 1 ? 'error' : 'errors'}</>}
+              </span>
+              {errors.length > 0 && (
+                <button type="button" className={styles.link} onClick={() => document.getElementById('err-h')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>See errors</button>
+              )}
+            </div>
+          )}
+
           {/* Zone 1: what is happening now. Never affected by the period. */}
           <section className={styles.zone} aria-labelledby="now-h">
             <h2 id="now-h" className={styles.srOnly}>Right now</h2>
@@ -522,7 +541,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                 </span>
                 <Gate s={slot('stations')} kind="body">
                   <div className={styles.tileBody}>
-                    <Ring value={stations.communication.offline} total={stations.total} base="var(--good)" arc="var(--offline)" label={`${offlinePct}%`} caption={`${stations.communication.online} online, ${stations.communication.offline} offline`} />
+                    <Ring value={stations.communication.offline} total={stations.total} base="var(--good)" arc="var(--offline)" label={`${offlinePct}%`} sub="offline" caption={`${stations.communication.online} online, ${stations.communication.offline} offline`} />
                     <ul className={styles.legend}>
                       <li><span className={styles.dotOff} />Offline<b>{stations.communication.offline}</b></li>
                       <li><span className={styles.dotOn} />Online<b>{stations.communication.online}</b></li>
