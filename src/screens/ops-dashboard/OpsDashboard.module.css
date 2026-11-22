@@ -898,7 +898,7 @@ h1.title, .zoneTitle, .kpiLabel { text-wrap: balance; }
 .iconTile, .toneStations .iconTile, .toneConn .iconTile, .toneSess .iconTile, .toneType .iconTile { background: none; width: 20px; height: 20px; border-radius: 0; color: var(--muted); }
 /* Ring says what it measures */
 .ringSub { font-size: 9px; font-weight: 500; fill: var(--muted); }
-.toneStations .legend li:first-child b { font-size: 24px; line-height: 1; color: var(--bad); }
+.toneStations .legend li:first-child b { color: var(--bad); }
 /* Performance metrics: one stat row with dividers, not three cards inside a card */
 .tiles { gap: 0; }
 .tile, .tileActive { border: 0; border-radius: 0; box-shadow: none; background: transparent; }
