@@ -34,7 +34,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { PERIOD } from '@/components/dashboard/data'
+import { PERIOD, mapPins } from '@/components/dashboard/data'
 import styles from './OpsDashboard.module.css'
 import { DATA_END, DATA_START, DEFAULT_RANGE, MAX_CUSTOM_DAYS, RANGES, customRange, parseISODate, rangeInsights, scaleRange, spanDays, toISODate } from './ranges'
 import type { Metric, RangeView } from './ranges'
@@ -59,6 +59,25 @@ const NAV = [
   { label: 'Technical Settings', icon: SlidersHorizontal },
   { label: 'Logs', icon: ScrollText },
 ]
+
+// Plain-language copy for known error types. The feed only sends the raw type and a time,
+// so the meaning and next step are deliberately general: they never name a cause or station.
+const ERROR_INFO: Record<string, { title: string; label: string; note: string; meaning: string; action: string }> = {
+  OcppStatusNotification: {
+    title: 'Charger fault reported',
+    label: 'charger fault',
+      note: 'A charger reported a problem',
+    meaning: 'A charger reported a problem. Which charger and why is not shown yet.',
+    action: 'Check which stations are offline, then open Logs for details.',
+  },
+}
+const errorInfo = (type: string) => ERROR_INFO[type] ?? {
+  title: 'Unrecognised error',
+  label: 'unrecognised error',
+    note: 'Not described in this dashboard yet',
+  meaning: 'The system reported an error of a type this dashboard does not describe yet.',
+  action: 'Open Logs to see the full details.',
+}
 
 const DETAIL_TITLE = { stations: 'Stations', connectors: 'Connectors', errors: 'Errors', perf: 'Performance' }
 const DETAIL_LINK = { stations: 'Open Charging Stations', connectors: 'Open Charging Stations', errors: 'Open Logs', perf: 'Open Statistics' }
@@ -793,6 +812,62 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
             </div>
           </section>
 
+          <div className={styles.mapErrRow}>
+          <section className={styles.zone} aria-labelledby="map-h">
+            <div className={styles.zoneHead}>
+              <div className={styles.zoneTitleGroup}>
+                <h2 id="map-h" className={styles.zoneTitle}>Station map</h2>
+              </div>
+            </div>
+            <div className={styles.mapCard}>
+              <svg viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Map of station locations, online or offline">
+                <rect x="-3000" y="-3000" width="6800" height="6400" fill="#f4f5f8" />
+                <g fill="#e4efe6"><rect x="470" y="190" width="120" height="56" rx="14" /><rect x="20" y="170" width="70" height="60" rx="14" /><rect x="640" y="20" width="110" height="70" rx="14" /><rect x="300" y="290" width="90" height="50" rx="14" /></g>
+                <path d="M-3000 250 C-200 270 60 300 160 340 C230 370 260 400 290 3400 L-3000 3400 Z" fill="#dce9f6" stroke="#c9dcf0" strokeWidth="2" />
+                <g stroke="#fff" strokeWidth="9" fill="none" strokeLinecap="round">
+                  <path d="M-3000 150 C200 140 400 190 3800 170" />
+                  <path d="M260 -3000 C280 120 330 250 380 3400" />
+                  <path d="M520 -3000 C500 140 560 260 640 3400" />
+                  <path d="M120 3400 C260 300 420 250 3800 260" />
+                </g>
+                <g stroke="#e6e9ef" strokeWidth="2" fill="none">
+                  <path d="M-3000 80 L3800 60" />
+                  <path d="M-3000 330 L3800 350" />
+                  <path d="M150 -3000 L120 3400" />
+                  <path d="M430 -3000 L450 3400" />
+                  <path d="M700 -3000 L720 3400" />
+                </g>
+                <g fill="#6f7888" fontSize="12" fontWeight="500" stroke="#f4f5f8" strokeWidth="4" paintOrder="stroke" strokeLinejoin="round">
+                  <text x="150" y="85">Calabasas</text>
+                  <text x="410" y="215">Los Angeles</text>
+                  <text x="520" y="130">Pasadena</text>
+                  <text x="215" y="300">Santa Monica</text>
+                  <text x="560" y="345">Anaheim</text>
+                </g>
+                {mapPins.map((pin) => (
+                  <g key={pin.id} transform={`translate(${pin.x} ${pin.y})`} className={styles.mapPin}>
+                    <title>{pin.status === 'online' ? 'Online station' : 'Offline station'}</title>
+                    <circle r="17" fill={pin.status === 'online' ? 'var(--good)' : 'var(--bad)'} opacity="0.14" />
+                    {pin.status === 'online' ? (
+                      <>
+                        <circle r="9" fill="var(--good)" stroke="#fff" strokeWidth="2.5" />
+                        <path d="M-3.5 0.5 L-1 3 L4 -2.5" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </>
+                    ) : (
+                      <>
+                        <rect x="-8" y="-8" width="16" height="16" rx="3" transform="rotate(45)" fill="var(--bad)" stroke="#fff" strokeWidth="2.5" />
+                        <path d="M-4 0 L4 0" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+                      </>
+                    )}
+                  </g>
+                ))}
+              </svg>
+              <ul className={styles.mapLegend} aria-label="Map key">
+                <li><svg width="14" height="14" viewBox="-11 -11 22 22" aria-hidden><circle r="9" fill="var(--good)" /><path d="M-4 0.5 L-1 3.5 L4.5 -3" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>Online</li>
+                <li><svg width="14" height="14" viewBox="-11 -11 22 22" aria-hidden><rect x="-7" y="-7" width="14" height="14" rx="2" transform="rotate(45)" fill="var(--bad)" /><path d="M-4 0 L4 0" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" /></svg>Offline</li>
+              </ul>
+            </div>
+          </section>
           <section className={styles.zone} aria-labelledby="err-h">
             <div className={styles.zoneHead}>
               <div className={styles.zoneTitleGroup}>
@@ -803,40 +878,41 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
         <div className={`${styles.tileCard} ${styles.clickable} ${styles.errCard}`}>
                 <button type="button" className={styles.cardHit} aria-label="Open errors details" aria-haspopup="dialog" onClick={() => setDetail('errors')} />
           <Gate s={slot('errors')} kind="body">
-            <div className={styles.tileBody}>
-              <div className={styles.tileStat}>
-                <span className={styles.heroValue}>{errors.length}<small> recent</small></span>
-              </div>
-              {errors.length > 0 && (
-                <div className={styles.errGroup}>
-                  <span>{errors[0]?.type}</span>
-                </div>
-              )}
-            </div>
             {errors.length === 0 && <p className={styles.inlineNote}>No errors reported. All clear.</p>}
             {errors.length > 0 && (
-              <>
-                <div className={styles.errRail}>
-                  {(() => {
-                    const ts = errors.map((y) => new Date(y.iso).getTime())
-                    const lo = Math.min(...ts)
-                    const hi = Math.max(...ts)
-                    return errors.map((x) => {
-                      const pos = hi === lo ? 50 : ((new Date(x.iso).getTime() - lo) / (hi - lo)) * 100
-                      return (
-                        <span key={x.id} className={styles.errPoint} style={{ left: `${pos}%`, transform: `translateX(-${pos}%)` }}>
-                          <i aria-hidden />
-                          <time dateTime={x.iso}>{x.relative}</time>
-                        </span>
-                      )
-                    })
-                  })()}
-                </div>
-              </>
+              <div className={styles.errFeed}>
+                <p className={styles.errLead}><b>{errors.length} recent {errors.length === 1 ? 'error' : 'errors'}.</b> {errorInfo(errors[0]?.type ?? '').action}</p>
+                {Array.from(new Set(errors.map((x) => x.type))).map((type) => {
+                  const info = errorInfo(type)
+                  const items = errors.filter((x) => x.type === type)
+                  return (
+                    <div key={type} className={styles.errGroupCard}>
+                      <div className={styles.errGroupHead}>
+                        <i className={styles.errIcon} aria-hidden><TriangleAlert size={16} /></i>
+                        <div className={styles.errRowText}>
+                          <span className={styles.errRowTitle}>{info.title}</span>
+                          <small>{info.note}</small>
+                        </div>
+                        <b className={styles.errCount}>{items.length}×</b>
+                      </div>
+                      <ul className={styles.errTimes}>
+                        {items.map((x) => (
+                          <li key={x.id}>
+                            <time dateTime={x.iso}>{x.relative}</time>
+                            {x.id === errors[0]?.id && <b>Latest</b>}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                })}
+                <button type="button" className={styles.errAll} aria-haspopup="dialog" onClick={() => setDetail('errors')}>View details</button>
+              </div>
             )}
           </Gate>
         </div>
           </section>
+          </div>
         </main>
         </div>
       </div>
@@ -902,18 +978,24 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
               )}
               {detail === 'errors' && (
                 <Gate s={slot('errors')} kind="body">
-                  <p className={styles.heroValue}>{errors.length}<small> recent</small></p>
+                  <p className={styles.heroValue}>{errors.length}<small> recent {errors.length === 1 ? 'error' : 'errors'}</small></p>
                   {errors.length === 0 ? (
                     <p className={styles.inlineNote}>No errors reported. All clear.</p>
                   ) : (
+                    <>
+                    <dl className={styles.errExplain}>
+                      <div><dt>What it means</dt><dd>{errorInfo(errors[0]?.type ?? "").meaning}</dd></div>
+                      <div><dt>What to do</dt><dd>{errorInfo(errors[0]?.type ?? "").action}</dd></div>
+                    </dl>
                     <ul className={styles.types}>
                       {errors.map((x) => (
                         <li key={x.id}>
-                          <span className={styles.typeName}>{x.type}</span>
+                          <span className={styles.typeName}>{errorInfo(x.type).title}<small className={styles.errRaw}>{x.type}</small></span>
                           <time dateTime={x.iso}>{x.absolute}</time>
                         </li>
                       ))}
                     </ul>
+                    </>
                   )}
                 </Gate>
               )}
