@@ -24,7 +24,6 @@ import {
   Layers,
   LayoutDashboard,
   Plug,
-  Radio,
   Receipt,
   ScrollText,
   Settings,
@@ -43,21 +42,26 @@ import { SITES, siteFacts, siteView } from './sites'
 
 const bricolage = Bricolage_Grotesque({ subsets: ['latin'], display: 'swap', variable: '--font-bricolage-local' })
 
+const ACRONYMS = /\b(EV|RFID)\b/
+/** Acronyms render in small caps so they sit at body weight instead of shouting. */
+const navLabel = (label: string) =>
+  label.split(ACRONYMS).map((part, i) => (i % 2 ? <span key={i} className={styles.acronym}>{part}</span> : part))
+
 const NAV = [
   { label: 'Dashboard', icon: LayoutDashboard, active: true },
-  { label: 'Charging Stations', icon: Plug },
-  { label: 'Energy Storages', icon: BatteryCharging },
+  { label: 'Charging stations', icon: Plug },
+  { label: 'Energy storages', icon: BatteryCharging },
   { label: 'Sessions', icon: Activity },
   { label: 'Gridify', icon: Layers },
   { label: 'Financials', icon: Receipt },
   { label: 'EV', icon: Car },
   { label: 'Users', icon: Users },
-  { label: 'RFID Cards', icon: CreditCard },
+  { label: 'RFID cards', icon: CreditCard },
   { label: 'Assets', icon: Landmark },
   { label: 'Organizations', icon: Building2 },
   { label: 'Statistics', icon: ChartColumn },
-  { label: 'Integration Settings', icon: Settings },
-  { label: 'Technical Settings', icon: SlidersHorizontal },
+  { label: 'Integration settings', icon: Settings },
+  { label: 'Technical settings', icon: SlidersHorizontal },
   { label: 'Logs', icon: ScrollText },
 ]
 
@@ -67,9 +71,9 @@ const ERROR_INFO: Record<string, { title: string; label: string; note: string; m
   OcppStatusNotification: {
     title: 'Charger fault reported',
     label: 'charger fault',
-      note: 'A charger reported a problem',
+      note: 'Which charger and why is not shown yet',
     meaning: 'A charger reported a problem. Which charger and why is not shown yet.',
-    action: 'Check which stations are offline, then open Logs for details.',
+    action: 'Open Logs to see which charger and why.',
   },
 }
 const errorInfo = (type: string) => ERROR_INFO[type] ?? {
@@ -88,21 +92,6 @@ const MCOLOR: Record<Metric, Record<string, string>> = {
   sessions: { '--m': '#684bd8', '--m-soft': '#f0edfb', '--m-mid': '#c3b7ef' },
   energy: { '--m': '#b55d26', '--m-soft': '#f8efe9', '--m-mid': '#e1bea8' },
 }
-
-function Ring({ value, total, base, arc, label, sub, caption }: { value: number; total: number; base: string; arc: string; label: string; sub: string; caption: string }) {
-  const r = 38
-  const c = 2 * Math.PI * r
-  const frac = total > 0 ? value / total : 0
-  return (
-    <svg className={styles.ring} viewBox="0 0 96 96" role="img" aria-label={caption}>
-      <circle cx="48" cy="48" r={r} fill="none" stroke={base} strokeWidth="11" />
-      <circle cx="48" cy="48" r={r} fill="none" stroke={arc} strokeWidth="11" strokeLinecap="butt" className={styles.ringArc} strokeDasharray={`${frac * c} ${c}`} transform="rotate(-90 48 48)" />
-      <text x="48" y="44" textAnchor="middle" dominantBaseline="central" className={styles.ringText} fontSize="17">{label}</text>
-      <text x="48" y="60" textAnchor="middle" dominantBaseline="central" className={styles.ringSub}>{sub}</text>
-    </svg>
-  )
-}
-
 
 const StationMapLive = dynamic(() => import('./StationMapLive'), { ssr: false, loading: () => <div className={styles.mapLoading} aria-hidden /> })
 
@@ -245,6 +234,7 @@ function Gate({ s, kind, children, emptyTitle = 'No data for this period' }: { s
     <div className={styles.empty}>
       <strong>{emptyTitle}</strong>
       <span>This section will fill in once the feed reports it.</span>
+      <button type="button" className={styles.link} onClick={() => window.location.reload()}>Check again</button>
     </div>
   )
 }
@@ -454,7 +444,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   const m = range.metrics[metric]
   const onlinePct = stations.total ? (stations.communication.online / stations.total) * 100 : 0
 
-  const level = (stations.communication.offline / Math.max(1, stations.total)) * 100 >= 25 ? 'Critical' : (stations.communication.offline / Math.max(1, stations.total)) * 100 >= 5 ? 'Degraded' : 'Normal'
   const offlinePct = stations.total ? Math.round((stations.communication.offline / stations.total) * 100) : 0
   const availPct = connectorTotal ? (connectors.available / connectorTotal) * 100 : 0
 
@@ -475,11 +464,11 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
               !active ? (
                 <span key={label} className={`${styles.navItem} ${styles.navSoon}`} aria-disabled="true" title={`${label} · coming soon`}>
                   <Icon size={16} strokeWidth={1.8} />
-                  <span>{label}</span>
+                  <span>{navLabel(label)}</span>
                 </span>
               ) : <a key={label} href="#" onClick={(e) => { e.preventDefault(); setNavOpen(false) }} aria-current={active ? 'page' : undefined} title={label} aria-label={label} className={active ? styles.navItemActive : styles.navItem}>
                 <Icon size={16} strokeWidth={1.8} />
-                <span>{label}</span>
+                <span>{navLabel(label)}</span>
               </a>
             ))}
           </nav>
@@ -565,7 +554,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                 </span>
               )}
               <button type="button" className={styles.secondaryBtn} onClick={exportCsv}>
-                <Download size={14} strokeWidth={2} /> Export
+                <Download size={14} strokeWidth={2} /> Export CSV
               </button>
             </div>
           </header>
@@ -575,47 +564,41 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
               <TriangleAlert size={16} strokeWidth={1.9} />
               <span>
                 {status === 'error'
-                  ? "Can't reach the data feed. Numbers below are from the last update and may be out of date."
+                  ? "Can’t reach the data feed. Numbers below are from the last update and may be out of date."
                   : 'Live updates are delayed. Numbers may be a few minutes behind.'}
               </span>
-              <button type="button" className={styles.bannerBtn} onClick={onRetry ?? (() => window.location.reload())}>Retry</button>
-            </div>
-          )}
-
-          {(stations.communication.offline > 0 || errors.length > 0) && (
-            <div className={styles.attention} role="status">
-              <TriangleAlert size={16} strokeWidth={1.9} />
-              <span>
-                <b>{level}</b> · <b>{stations.communication.offline} of {stations.total}</b> stations offline
-                {errors.length > 0 && <> · <b>{errors.length}</b> recent {errors.length === 1 ? 'error' : 'errors'}</>}
-              </span>
-              {errors.length > 0 && (
-                <button type="button" className={styles.link} onClick={() => document.getElementById('err-h')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>See errors</button>
-              )}
+              <button type="button" className={styles.bannerBtn} onClick={onRetry ?? (() => window.location.reload())}>Retry connection</button>
             </div>
           )}
 
           {/* Zone 1: what is happening now. Never affected by the period. */}
           <section className={styles.zone} aria-labelledby="now-h">
-            <h2 id="now-h" className={styles.srOnly}>Right now</h2>
+            <div className={styles.zoneTitleGroup}>
+              <h2 id="now-h" className={styles.zoneTitle}>Right now</h2>
+              <span className={styles.zoneNote}>Live. The period below doesn’t change these.</span>
+            </div>
             <div className={styles.rowNow}>
               <div className={`${styles.tileCard} ${styles.clickable} ${styles.toneStations}`}>
                 <button type="button" className={styles.cardHit} aria-label="Open charging stations details" aria-haspopup="dialog" onClick={() => setDetail('stations')} />
                 <span className={styles.cardHead}>
                   <span className={styles.kpiHead}>
-                    <span className={styles.iconTile}><Radio size={15} strokeWidth={1.9} /></span>
                     <h3 className={styles.kpiLabel}>Charging stations</h3>
                   </span>
                   <span className={styles.headRight}><span className={styles.total}>{stations.total} total</span><DetailBtn label="Open charging stations details" onOpen={() => setDetail('stations')} /></span>
                 </span>
                 <Gate s={slot('stations')} kind="body">
-                  <div className={styles.tileBody}>
-                    <Ring value={stations.communication.offline} total={stations.total} base="var(--good)" arc="var(--offline)" label={`${offlinePct}%`} sub="offline" caption={`${stations.communication.online} online, ${stations.communication.offline} offline`} />
-                    <ul className={styles.legend}>
-                      <li><span className={styles.dotOff} />Offline<b>{stations.communication.offline}</b></li>
-                      <li><span className={styles.dotOn} />Online<b>{stations.communication.online}</b></li>
-                    </ul>
+                  <p className={styles.netHero}>
+                    <b className={stations.communication.offline > 0 ? styles.netBad : undefined}>{stations.communication.offline}</b>
+                    <span>of {stations.total} stations offline<small>{offlinePct}%</small></span>
+                  </p>
+                  <div className={styles.stack} role="img" aria-label={`${stations.communication.online} online, ${stations.communication.offline} offline`}>
+                    <i style={{ width: `${onlinePct}%`, background: 'var(--good)' }} />
+                    <i style={{ width: `${100 - onlinePct}%`, background: 'var(--offline)' }} />
                   </div>
+                  <ul className={styles.legend}>
+                    <li><span className={styles.dotOff} />Offline<b>{stations.communication.offline}</b></li>
+                    <li><span className={styles.dotOn} />Online<b>{stations.communication.online}</b></li>
+                  </ul>
                   <div className={styles.cols}>
                     <div>
                       <span className={styles.grpLabel}>Category</span>
@@ -638,7 +621,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                 <button type="button" className={styles.cardHit} aria-label="Open connectors details" aria-haspopup="dialog" onClick={() => setDetail('connectors')} />
                 <span className={styles.cardHead}>
                   <span className={styles.kpiHead}>
-                    <span className={styles.iconTile}><Plug size={15} strokeWidth={1.9} /></span>
                     <h3 className={styles.kpiLabel}>Connectors</h3>
                   </span>
                   <span className={styles.headRight}><span className={styles.total}>{connectorTotal} total</span><DetailBtn label="Open connectors details" onOpen={() => setDetail('connectors')} /></span>
@@ -661,7 +643,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                 <button type="button" className={styles.cardHit} aria-label="Open connector types details" aria-haspopup="dialog" onClick={() => setDetail('connectors')} />
                 <span className={styles.cardHead}>
                   <span className={styles.kpiHead}>
-                    <span className={styles.iconTile}><Layers size={15} strokeWidth={1.9} /></span>
                     <h3 className={styles.kpiLabel}>Connector types</h3>
                   </span>
                   <span className={styles.headRight}><span className={styles.total}>{connectorTypes.length} types</span><DetailBtn label="Open connector types details" onOpen={() => setDetail('connectors')} /></span>
@@ -681,21 +662,14 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
               <div className={`${styles.tileCard} ${styles.toneSess}`}>
                 <span className={styles.cardHead}>
                   <span className={styles.kpiHead}>
-                    <span className={styles.iconTile}><Activity size={15} strokeWidth={1.9} /></span>
                     <h3 className={styles.kpiLabel}>Sessions</h3>
                   </span>
                 </span>
                 <Gate s={slot('sessions')} kind="body" emptyTitle="No data reported">
-                  <div className={styles.bigStats}>
-                    <div>
-                      <span className={styles.bigNum}>{live.activeSessions}</span>
-                      <span className={styles.bigLabel}>Active session</span>
-                    </div>
-                    <div>
-                      <span className={shown.sessionErrors > 0 ? styles.bigNum : styles.bigNumZero}>{shown.sessionErrors}</span>
-                      <span className={styles.bigLabel}>{shown.sessionErrors > 0 && <i className={styles.errDot} aria-hidden />}Session error</span>
-                    </div>
-                  </div>
+                  <ul className={`${styles.statusRows} ${styles.sessRows}`}>
+                    <li><span style={{ background: 'var(--accent)' }} />Active session<b className={zv(live.activeSessions)}>{live.activeSessions}</b></li>
+                    <li><span style={{ background: shown.sessionErrors > 0 ? 'var(--bad)' : 'var(--neutral)' }} />Session error<b className={shown.sessionErrors > 0 ? styles.netBad : zv(shown.sessionErrors)}>{shown.sessionErrors}</b></li>
+                  </ul>
                 </Gate>
               </div>
             </div>
@@ -750,8 +724,9 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                     className={!custom && o === period ? styles.segActive : styles.seg}
                     onClick={() => choosePreset(o)}
                     aria-pressed={!custom && o === period}
+                    data-text={o}
                   >
-                    {o}
+                    <span>{o}</span>
                   </button>
                 ))}
               </div>
@@ -870,7 +845,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                     </div>
                   )
                 })}
-                <button type="button" className={styles.errAll} aria-haspopup="dialog" onClick={() => setDetail('errors')}>View details</button>
               </div>
             )}
           </Gate>
