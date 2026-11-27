@@ -84,8 +84,8 @@ const errorInfo = (type: string) => ERROR_INFO[type] ?? {
   action: 'Open Logs to see the full details.',
 }
 
-const DETAIL_TITLE = { stations: 'Stations', connectors: 'Connectors', errors: 'Errors', perf: 'Performance' }
-const DETAIL_LINK = { stations: 'Open Charging Stations', connectors: 'Open Charging Stations', errors: 'Open Logs', perf: 'Open Statistics' }
+const DETAIL_TITLE = { stations: 'Stations', connectors: 'Connectors', errors: 'Errors' }
+const DETAIL_LINK = { stations: 'Open charging stations', connectors: 'Open charging stations', errors: 'Open logs' }
 
 const MCOLOR: Record<Metric, Record<string, string>> = {
   fees: { '--m': '#35746e', '--m-soft': '#e6f3f1', '--m-mid': '#aec7c5' },
@@ -118,6 +118,7 @@ function Chart({ metric, range }: { metric: Metric; range: RangeView }) {
 
   return (
     <div className={styles.chart} style={MCOLOR[metric] as CSSProperties}>
+      {metric === 'energy' && <span className={styles.yUnit}>kWh</span>}
       <div className={styles.yAxis}>
         {ticks.map((t, i) => (
           <span key={i}>{metric === 'fees' ? '$' : ''}{short(t)}</span>
@@ -132,6 +133,8 @@ function Chart({ metric, range }: { metric: Metric; range: RangeView }) {
         <div
           className={`${styles.bars} ${range.dense ? styles.barsDense : ''}`}
           key={`${range.key}-${metric}`}
+          onMouseEnter={(e) => { const el = e.currentTarget; window.clearTimeout(Number(el.dataset.warmTimer)); el.dataset.warmTimer = String(window.setTimeout(() => { el.dataset.warm = '' }, 250)) }}
+          onMouseLeave={(e) => { const el = e.currentTarget; window.clearTimeout(Number(el.dataset.warmTimer)); delete el.dataset.warm }}
           style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}
         >
           {series.map((p, idx) => {
@@ -207,7 +210,7 @@ function DetailBtn({ label, onOpen }: { label: string; onOpen: () => void }) {
   )
 }
 
-function Gate({ s, kind, children, emptyTitle = 'No data for this period' }: { s: SlotState; kind: 'kpi' | 'body'; children: ReactNode; emptyTitle?: string }) {
+function Gate({ s, kind, children, emptyTitle = 'No data for this period', onRetry }: { s: SlotState; kind: 'kpi' | 'body'; children: ReactNode; emptyTitle?: string; onRetry?: () => void }) {
   if (s === 'ok') return <>{children}</>
   if (kind === 'kpi') {
     return s === 'loading' ? (
@@ -234,9 +237,19 @@ function Gate({ s, kind, children, emptyTitle = 'No data for this period' }: { s
     <div className={styles.empty}>
       <strong>{emptyTitle}</strong>
       <span>This section will fill in once the feed reports it.</span>
-      <button type="button" className={styles.link} onClick={() => window.location.reload()}>Check again</button>
+      <button type="button" className={styles.link} onClick={onRetry ?? (() => window.location.reload())}>{onRetry ? 'Check again' : 'Reload dashboard'}</button>
     </div>
   )
+}
+
+/** Ticks on its own, so the per-second update never re-renders the whole dashboard. */
+function Ago({ last }: { last: number }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  return <>{ago(now - last)}</>
 }
 
 export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, onRetry, initialPeriod }: OpsDashboardProps = {}) {
@@ -256,7 +269,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   const pickerRef = useRef<HTMLDivElement>(null)
   const siteRef = useRef<HTMLDivElement>(null)
   const pickerBtnRef = useRef<HTMLButtonElement>(null)
-  const [detail, setDetail] = useState<'stations' | 'connectors' | 'errors' | 'perf' | null>(null)
+  const [detail, setDetail] = useState<'stations' | 'connectors' | 'errors' | null>(null)
   const [closing, setClosing] = useState(false)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeDetail = useCallback(() => {
@@ -386,14 +399,17 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   }, [pickerOpen])
 
   const [mountedAt] = useState(() => Date.now())
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [])
   const last = mountedAt - staleForMs
   // A feed that says live but has not updated for 2 minutes is not live.
-  const pill: FeedStatus = status === 'live' && now - last > 120_000 ? 'stale' : status
+  const [stale, setStale] = useState(false)
+  useEffect(() => {
+    const ms = last + 120_000 - Date.now()
+    if (ms <= 0) { setStale(true); return }
+    setStale(false)
+    const t = setTimeout(() => setStale(true), ms)
+    return () => clearTimeout(t)
+  }, [last])
+  const pill: FeedStatus = status === 'live' && stale ? 'stale' : status
   const slot = (k: Slot): SlotState => (status === 'loading' ? 'loading' : missing[k] ? 'missing' : 'ok')
   const selectedSet = useMemo(() => new Set(selectedSites), [selectedSites])
   const view = useMemo(() => siteView(selectedSet), [selectedSet])
@@ -441,7 +457,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
     setPickerOpen(false)
   }
   const perfSlot = slot
-  const m = range.metrics[metric]
   const onlinePct = stations.total ? (stations.communication.online / stations.total) * 100 : 0
 
   const offlinePct = stations.total ? Math.round((stations.communication.offline / stations.total) * 100) : 0
@@ -462,9 +477,10 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
           <nav className={styles.nav} aria-label="Primary">
             {NAV.map(({ label, icon: Icon, active }) => (
               !active ? (
-                <span key={label} className={`${styles.navItem} ${styles.navSoon}`} aria-disabled="true" title={`${label}, coming soon`}>
+                <span key={label} className={`${styles.navItem} ${styles.navSoon}`} aria-disabled="true" title={collapsed && !mobile ? `${label}, coming soon` : undefined}>
                   <Icon size={16} strokeWidth={1.8} />
                   <span>{navLabel(label)}</span>
+                  <small className={styles.soon}>Soon</small>
                 </span>
               ) : <a key={label} href="#" onClick={(e) => { e.preventDefault(); setNavOpen(false) }} aria-current={active ? 'page' : undefined} title={label} aria-label={label} className={active ? styles.navItemActive : styles.navItem}>
                 <Icon size={16} strokeWidth={1.8} />
@@ -494,10 +510,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                 <li aria-current="page" className={styles.crumbCurrent}>Dashboard</li>
               </ol>
             </nav>
-            <span className={styles.topUser}>
-              <span className={styles.avatar}>J</span>
-              <span className={styles.userName}>Jay</span>
-            </span>
           </header>
         <main className={styles.main}>
           <header className={styles.header}>
@@ -507,6 +519,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                 <button type="button" className={styles.siteBtn} aria-haspopup="dialog" aria-expanded={siteOpen} onClick={() => setSiteOpen((v) => !v)}>
                   <Building2 size={14} strokeWidth={1.9} />
                   {siteLabel}
+                  <kbd className={styles.kbd} aria-hidden>/</kbd>
                   <ChevronDown size={14} strokeWidth={1.9} />
                 </button>
                 {siteOpen && (
@@ -547,14 +560,14 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
             </div>
             <div className={styles.headerActions}>
               {pill !== 'stale' && (
-                <span className={styles[`feed_${pill}`]} role="status" title="Cards above are live and ignore the period">
+                <span className={styles[`feed_${pill}`]} role="status">
                   <i />
                   {FEED_LABEL[pill]}
-                  {pill !== 'loading' && <small>updated {ago(now - last)}</small>}
+                  {pill !== 'loading' && <small>updated <Ago last={last} /></small>}
                 </span>
               )}
               <button type="button" className={styles.secondaryBtn} onClick={exportCsv}>
-                <Download size={14} strokeWidth={2} /> Export CSV
+                <Download size={14} strokeWidth={2} /> Export <span className={styles.acronym}>CSV</span>
               </button>
             </div>
           </header>
@@ -586,7 +599,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                   </span>
                   <span className={styles.headRight}><span className={styles.total}>{stations.total} total</span><DetailBtn label="Open charging stations details" onOpen={() => setDetail('stations')} /></span>
                 </span>
-                <Gate s={slot('stations')} kind="body">
+                <Gate onRetry={onRetry} s={slot('stations')} kind="body">
                   <p className={styles.netHero}>
                     <b className={stations.communication.offline > 0 ? styles.netBad : undefined}>{stations.communication.offline}</b>
                     <span>of {stations.total} stations offline<small>{offlinePct}%</small></span>
@@ -625,7 +638,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                   </span>
                   <span className={styles.headRight}><span className={styles.total}>{connectorTotal} total</span><DetailBtn label="Open connectors details" onOpen={() => setDetail('connectors')} /></span>
                 </span>
-                <Gate s={slot('connectors')} kind="body">
+                <Gate onRetry={onRetry} s={slot('connectors')} kind="body">
                   <div className={styles.stack} role="img" aria-label="Connectors by status">
                     <i style={{ width: `${availPct}%`, background: 'var(--accent)' }} />
                     <i style={{ width: `${connectorTotal ? (connectors.unavailable / connectorTotal) * 100 : 0}%`, background: 'var(--neutral)' }} />
@@ -647,7 +660,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                   </span>
                   <span className={styles.headRight}><span className={styles.total}>{connectorTypes.length} types</span><DetailBtn label="Open connector types details" onOpen={() => setDetail('connectors')} /></span>
                 </span>
-                <Gate s={slot('types')} kind="body">
+                <Gate onRetry={onRetry} s={slot('types')} kind="body">
                   <ul className={styles.typeRows}>
                     {[...connectorTypes].sort((a, b) => b.count - a.count).map((x) => (
                       <li key={x.name}>
@@ -665,7 +678,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                     <h3 className={styles.kpiLabel}>Sessions</h3>
                   </span>
                 </span>
-                <Gate s={slot('sessions')} kind="body" emptyTitle="No data reported">
+                <Gate onRetry={onRetry} s={slot('sessions')} kind="body" emptyTitle="No data reported">
                   <ul className={`${styles.statusRows} ${styles.sessRows}`}>
                     <li><span style={{ background: 'var(--accent)' }} />Active session<b className={zv(live.activeSessions)}>{live.activeSessions}</b></li>
                     <li><span style={{ background: shown.sessionErrors > 0 ? 'var(--bad)' : 'var(--neutral)' }} />Session error<b className={shown.sessionErrors > 0 ? styles.netBad : zv(shown.sessionErrors)}>{shown.sessionErrors}</b></li>
@@ -700,11 +713,11 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                       >
                         <p className={styles.customTitle}>Custom range</p>
                         <div className={styles.dateRow}>
-                          <label className={styles.dateField}>
+                          <label className={styles.dateField} data-invalid={draftError ? '' : undefined}>
                             Start
                             <input type="date" min={minDate} max={maxDate} value={draft.start} onChange={(e) => setDraft((d) => ({ ...d, start: e.target.value }))} />
                           </label>
-                          <label className={styles.dateField}>
+                          <label className={styles.dateField} data-invalid={draftError ? '' : undefined}>
                             End
                             <input type="date" min={minDate} max={maxDate} value={draft.end} onChange={(e) => setDraft((d) => ({ ...d, end: e.target.value }))} />
                           </label>
@@ -769,7 +782,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                     )
                   })}
                 </div>
-                <Gate s={perfSlot('trend')} kind="body">
+                <Gate onRetry={onRetry} s={perfSlot('trend')} kind="body">
                   {(() => {
                     const ins = rangeInsights(range, metric)
                     if (!ins) return null
@@ -816,7 +829,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
             </div>
         <div className={`${styles.tileCard} ${styles.clickable} ${styles.errCard}`}>
                 <button type="button" className={styles.cardHit} aria-label="Open errors details" aria-haspopup="dialog" onClick={() => setDetail('errors')} />
-          <Gate s={slot('errors')} kind="body">
+          <Gate onRetry={onRetry} s={slot('errors')} kind="body">
             {errors.length === 0 && <p className={styles.inlineNote}>No errors reported. All clear.</p>}
             {errors.length > 0 && (
               <div className={styles.errFeed}>
@@ -867,7 +880,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
             </header>
             <div className={styles.drawerBody}>
               {detail === 'stations' && (
-                <Gate s={slot('stations')} kind="body">
+                <Gate onRetry={onRetry} s={slot('stations')} kind="body">
                   <p className={styles.heroValue}>{stations.communication.offline}<small> of {stations.total} offline ({offlinePct}%)</small></p>
                   <div className={styles.split}>
                     <i style={{ width: `${onlinePct}%` }} className={styles.splitOn} />
@@ -890,7 +903,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                 </Gate>
               )}
               {detail === 'connectors' && (
-                <Gate s={slot('connectors')} kind="body">
+                <Gate onRetry={onRetry} s={slot('connectors')} kind="body">
                   <p className={styles.heroValue}>{connectors.available}<small> of {connectorTotal} available</small></p>
                   <div className={styles.split}>
                     <i style={{ width: `${availPct}%` }} className={styles.splitAvail} />
@@ -905,7 +918,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                   </ul>
                   <p className={styles.inlineNote}>{live.activeSessions} active, {shown.sessionErrors} session errors</p>
                   <h4 className={styles.subHead}>By type</h4>
-                  <Gate s={slot('types')} kind="body">
+                  <Gate onRetry={onRetry} s={slot('types')} kind="body">
                     <ul className={styles.types}>
                       {[...connectorTypes].sort((a, b) => b.count - a.count).map((x) => (
                         <li key={x.name}><span className={styles.typeName}><ConnectorIcon type={x.name} size={14} /> {x.name}</span><b>{x.count}</b></li>
@@ -915,7 +928,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                 </Gate>
               )}
               {detail === 'errors' && (
-                <Gate s={slot('errors')} kind="body">
+                <Gate onRetry={onRetry} s={slot('errors')} kind="body">
                   <p className={styles.heroValue}>{errors.length}<small> recent {errors.length === 1 ? 'error' : 'errors'}</small></p>
                   {errors.length === 0 ? (
                     <p className={styles.inlineNote}>No errors reported. All clear.</p>
@@ -935,19 +948,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                     </ul>
                     </>
                   )}
-                </Gate>
-              )}
-              {detail === 'perf' && (
-                <Gate s={slot('trend')} kind="body">
-                  <p className={styles.chartNote}>{m.label} by {range.tableNoun}.{range.hasPartial ? (range.unit === 'week' ? ' The oldest week is partial.' : ' Partial months are marked.') : ''}</p>
-                  <ul className={styles.types}>
-                    {m.series.map((p) => (
-                      <li key={p.key}>
-                        <span className={styles.typeName}>{p.full}</span>
-                        <b>{m.fmt(p.value)}</b>
-                      </li>
-                    ))}
-                  </ul>
                 </Gate>
               )}
             </div>
