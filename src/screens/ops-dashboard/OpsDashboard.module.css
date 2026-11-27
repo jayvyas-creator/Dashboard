@@ -254,7 +254,6 @@
   width: 8px; height: 8px; border-radius: 50%; background: var(--good);
 }
 .feed_live { color: var(--good); }
-.feed_live i { animation: pulse 2s ease-out infinite; }
 .feed_stale { color: var(--warn); }
 .feed_stale i { background: #e08a1e; }
 .feed_error { color: var(--bad); }
@@ -661,10 +660,8 @@ h1.title, .zoneTitle, .kpiLabel { text-wrap: balance; }
 
 /* Switching metric: the stats row and bars replay quietly. */
 @keyframes softIn { from { opacity: 0; filter: blur(2px); } }
-.insights { animation: softIn var(--dur-fast) ease-in-out both; }
 
 /* Loading skeleton to real content: cross-fade only. */
-.tileCard > :not(.cardHead) { animation: softIn var(--dur-fast) ease-in-out both; }
 
 /* Hover and press feedback. */
 .tileCard {
@@ -679,7 +676,6 @@ h1.title, .zoneTitle, .kpiLabel { text-wrap: balance; }
 .seg:active:not(:disabled), .segActive:active, .tile:active, .tileActive:active, .chevBtn:active, .bannerBtn:active, .primaryBtn:active { transform: scale(0.97); }
 .bar, .barPartial { transition: filter var(--dur-quick) ease; }
 .barCol:hover .bar, .barCol:hover .barPartial { filter: brightness(1.1); }
-.liveChip i { animation: pulse 2s ease-out infinite; }
 
 /* Drawer: slides in from the right, leaves a touch faster. */
 @keyframes scrimIn { from { opacity: 0; } }
@@ -1107,3 +1103,6 @@ sup { line-height: 0; position: relative; vertical-align: baseline; top: -0.5em;
 /* Design tips pass */
 .title { line-height: 1.15; }
 .empty .link { margin-top: 6px; text-align: center; }
+
+/* Slop pass: static live dot, no load fade, no middots */
+.feed_live small, .feed_stale small, .feed_error small { margin-left: 4px; }

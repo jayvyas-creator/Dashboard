@@ -143,7 +143,7 @@ function Chart({ metric, range }: { metric: Metric; range: RangeView }) {
                   <div className={cls} style={{ height: `${(p.value / top) * 100}%` }}>
                     {!range.dense && <span className={styles.barVal}>{fmt(p.value)}</span>}
                     <span className={styles.barTip} role="tooltip">
-                      <small>{p.full}{p.partial ? ' · partial' : ''}</small>
+                      <small>{p.full}{p.partial ? ', partial' : ''}</small>
                       <b>{fmt(p.value)}</b>
                     </span>
                   </div>
@@ -399,7 +399,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   const view = useMemo(() => siteView(selectedSet), [selectedSet])
   const { stations, connectors, connectorTotal, connectorTypes, live, errors, shown } = view
   const allSites = selectedSites.length === SITES.length
-  const siteLabel = allSites ? `All sites · ${SITES.length} selected` : selectedSites.length === 1 ? (SITES.find((x) => x.id === selectedSites[0])?.name ?? '1 site') : `${selectedSites.length} of ${SITES.length} sites`
+  const siteLabel = allSites ? `All ${SITES.length} sites` : selectedSites.length === 1 ? (SITES.find((x) => x.id === selectedSites[0])?.name ?? '1 site') : `${selectedSites.length} of ${SITES.length} sites`
   const visibleSites = SITES.filter((x) => x.name.toLowerCase().includes(siteQuery.trim().toLowerCase()))
   const toggleSite = (id: string) =>
     setSelectedSites((cur) => (cur.includes(id) ? (cur.length > 1 ? cur.filter((x) => x !== id) : cur) : SITES.map((x) => x.id).filter((x) => x === id || cur.includes(x))))
@@ -462,7 +462,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
           <nav className={styles.nav} aria-label="Primary">
             {NAV.map(({ label, icon: Icon, active }) => (
               !active ? (
-                <span key={label} className={`${styles.navItem} ${styles.navSoon}`} aria-disabled="true" title={`${label} · coming soon`}>
+                <span key={label} className={`${styles.navItem} ${styles.navSoon}`} aria-disabled="true" title={`${label}, coming soon`}>
                   <Icon size={16} strokeWidth={1.8} />
                   <span>{navLabel(label)}</span>
                 </span>
@@ -550,7 +550,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                 <span className={styles[`feed_${pill}`]} role="status" title="Cards above are live and ignore the period">
                   <i />
                   {FEED_LABEL[pill]}
-                  {pill !== 'loading' && <small> · updated {ago(now - last)}</small>}
+                  {pill !== 'loading' && <small>updated {ago(now - last)}</small>}
                 </span>
               )}
               <button type="button" className={styles.secondaryBtn} onClick={exportCsv}>
@@ -775,7 +775,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                     if (!ins) return null
                     return (
                       <ul key={`${range.key}-${metric}`} className={styles.insights} style={MCOLOR[metric] as CSSProperties}>
-                        <li><span>{range.bestLabel}</span><b>{ins.best.label} · {ins.fmt(ins.best.value)}</b></li>
+                        <li><span>{range.bestLabel}</span><b>{ins.best.label}: {ins.fmt(ins.best.value)}</b></li>
                         <li><span>{range.avgLabel}</span><b>{ins.fmt(Math.round(ins.avg))}</b></li>
                         {ins.change !== null && (
                           <li><span>{ins.changeLabel}</span><b className={ins.change >= 0 ? styles.up : styles.down}>{ins.change >= 0 ? '+' : ''}{ins.change.toFixed(1)}%</b></li>
@@ -868,7 +868,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
             <div className={styles.drawerBody}>
               {detail === 'stations' && (
                 <Gate s={slot('stations')} kind="body">
-                  <p className={styles.heroValue}>{stations.communication.offline}<small> of {stations.total} offline · {offlinePct}%</small></p>
+                  <p className={styles.heroValue}>{stations.communication.offline}<small> of {stations.total} offline ({offlinePct}%)</small></p>
                   <div className={styles.split}>
                     <i style={{ width: `${onlinePct}%` }} className={styles.splitOn} />
                     <i style={{ width: `${100 - onlinePct}%` }} className={styles.splitOff} />
@@ -903,7 +903,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                     <li><span className={styles.dotNone} />Reserved<b>{shown.reserved}</b></li>
                     <li><span className={styles.dotNone} />Faulted<b>{shown.faulted}</b></li>
                   </ul>
-                  <p className={styles.inlineNote}>{live.activeSessions} active · {shown.sessionErrors} session errors</p>
+                  <p className={styles.inlineNote}>{live.activeSessions} active, {shown.sessionErrors} session errors</p>
                   <h4 className={styles.subHead}>By type</h4>
                   <Gate s={slot('types')} kind="body">
                     <ul className={styles.types}>
