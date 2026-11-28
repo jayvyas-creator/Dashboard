@@ -181,27 +181,10 @@ export interface OpsDashboardProps {
   onRetry?: () => void
   /** Which period is selected first. Defaults to the real 6-month range. */
   initialPeriod?: string
-  /** Health of the data feed. Drives the header pill and the banner. */
+  /** Health of the data feed. Drives the banner. */
   status?: FeedStatus
-  /** How long ago the last successful update was, in ms. Defaults to 0 (just now). */
-  staleForMs?: number
   /** Sections the feed did not return. They show "No data" instead of a number. */
   missing?: Partial<Record<Slot, boolean>>
-}
-
-const FEED_LABEL: Record<FeedStatus, string> = {
-  live: 'Live',
-  stale: 'Delayed',
-  loading: 'Connecting',
-  error: 'Offline',
-}
-
-function ago(ms: number) {
-  const s = Math.max(0, Math.round(ms / 1000))
-  if (s < 5) return 'just now'
-  if (s < 60) return `${s}s ago`
-  if (s < 3600) return `${Math.floor(s / 60)} min ago`
-  return `${Math.floor(s / 3600)} h ago`
 }
 
 const zv = (n: number) => (n === 0 ? styles.zv : undefined)
@@ -254,17 +237,7 @@ function Gate({ s, kind, children, emptyTitle = 'No data for this period', onRet
   )
 }
 
-/** Ticks on its own, so the per-second update never re-renders the whole dashboard. */
-function Ago({ last }: { last: number }) {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [])
-  return <>{ago(now - last)}</>
-}
-
-export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, onRetry, initialPeriod }: OpsDashboardProps = {}) {
+export function OpsDashboard({ status = 'live', missing = {}, onRetry, initialPeriod }: OpsDashboardProps = {}) {
   const drawerRef = useRef<HTMLElement>(null)
   const [metric, setMetric] = useState<Metric>('fees')
   const [period, setPeriod] = useState(initialPeriod ?? PERIOD.label)
@@ -383,18 +356,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
     }
   }, [pickerOpen])
 
-  const [mountedAt] = useState(() => Date.now())
-  const last = mountedAt - staleForMs
-  // A feed that says live but has not updated for 2 minutes is not live.
-  const [stale, setStale] = useState(false)
-  useEffect(() => {
-    const ms = last + 120_000 - Date.now()
-    if (ms <= 0) { setStale(true); return }
-    setStale(false)
-    const t = setTimeout(() => setStale(true), ms)
-    return () => clearTimeout(t)
-  }, [last])
-  const pill: FeedStatus = status === 'live' && stale ? 'stale' : status
   const slot = (k: Slot): SlotState => (status === 'loading' ? 'loading' : missing[k] ? 'missing' : 'ok')
   const selectedSet = useMemo(() => new Set(selectedSites), [selectedSites])
   const view = useMemo(() => siteView(selectedSet), [selectedSet])
@@ -552,13 +513,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
               </div>
             </div>
             <div className={styles.headerActions}>
-              {pill !== 'stale' && (
-                <span className={styles[`feed_${pill}`]} role="status">
-                  <i />
-                  {FEED_LABEL[pill]}
-                  {pill !== 'loading' && <small>updated <Ago last={last} /></small>}
-                </span>
-              )}
               <button type="button" className={styles.secondaryBtn} onClick={exportCsv}>
                 <Download size={14} strokeWidth={2} /> Export
               </button>
@@ -822,17 +776,29 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
             {errors.length === 0 && <p className={styles.inlineNote}>No errors reported. All clear.</p>}
             {errors.length > 0 && (
               <div className={styles.errFeed}>
-                <ul className={styles.errList}>
-                  {errors.slice(0, 3).map((x) => (
-                    <li key={x.id}>
-                      <i className={styles.errIcon} aria-hidden><TriangleAlert size={16} /></i>
-                      <div className={styles.errRowText}>
-                        <span className={styles.errRowTitle}>{errorInfo(x.type).title}</span>
-                        <time dateTime={x.iso}>{x.relative}</time>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                {(() => {
+                  const shown = errors.slice(0, 3)
+                  const same = shown.every((x) => x.type === shown[0]?.type)
+                  return (
+                    <>
+                      {same && (
+                        <div className={styles.errTitleRow}>
+                          <i className={styles.errIcon} aria-hidden><TriangleAlert size={16} /></i>
+                          <span className={styles.errRowTitle}>{errorInfo(shown[0]?.type ?? '').title}</span>
+                          <ChevronRight size={16} strokeWidth={1.9} className={styles.chev} aria-hidden="true" />
+                        </div>
+                      )}
+                      <ul className={styles.errList}>
+                        {shown.map((x) => (
+                          <li key={x.id}>
+                            {!same && <span className={styles.errRowTitle}>{errorInfo(x.type).title}</span>}
+                            <time dateTime={x.iso}>{x.relative}</time>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )
+                })()}
               </div>
             )}
           </Gate>
@@ -917,7 +883,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                       {errors.map((x) => (
                         <li key={x.id}>
                           <span className={styles.typeName}>{errorInfo(x.type).title}<small className={styles.errRaw}>{x.type}</small></span>
-                          <time dateTime={x.iso}>{x.absolute}</time>
+                          <time dateTime={x.iso}>{x.relative}</time>
                         </li>
                       ))}
                     </ul>
