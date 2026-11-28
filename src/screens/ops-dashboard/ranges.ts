@@ -78,7 +78,7 @@ function metricsFor(buckets: { key: string; label: string; full: string; session
   const f = sum(feesSeries.map((b) => b.value))
   const tx = Math.max(1, Math.round(f / totals.avgCost))
   return {
-    fees: { label: 'Financials', series: feesSeries, total: usd(f).replace('.00', ''), sub: `${usd(f / tx)} avg · ${int(tx)} transactions`, fmt: FMT.fees },
+    fees: { label: 'Financials', series: feesSeries, total: usd(f).replace('.00', ''), sub: `${usd(f / tx)} avg, ${int(tx)} transactions`, fmt: FMT.fees },
     sessions: { label: 'Sessions', series: sessionsSeries, total: int(s), sub: `Avg ${duration(totals.avgDurationMin)}`, fmt: FMT.sessions },
     energy: { label: 'Energy', series: energySeries, total: int(e) + ' kWh', sub: `${kwh(s ? e / s : 0, 1)} kWh avg per session`, fmt: FMT.energy },
   }
@@ -128,7 +128,7 @@ const sixMonths: RangeView = {
   avgLabel: 'Full-month average',
   compare: { cur: 1, prev: 1, label: (full) => `${full.at(-1)?.label ?? ''} vs ${full.at(-2)?.label ?? ''}` },
   metrics: {
-    fees: { label: 'Financials', series: monthSeries(feesByMonth), total: usd(Math.round(totals.fees)).replace('.00', ''), sub: `${usd(totals.avgCost)} avg · ${int(totals.transactions)} transactions`, fmt: FMT.fees },
+    fees: { label: 'Financials', series: monthSeries(feesByMonth), total: usd(Math.round(totals.fees)).replace('.00', ''), sub: `${usd(totals.avgCost)} avg, ${int(totals.transactions)} transactions`, fmt: FMT.fees },
     sessions: { label: 'Sessions', series: monthSeries(sessionsByMonth), total: int(totals.sessions), sub: `Avg ${duration(totals.avgDurationMin)}`, fmt: FMT.sessions },
     energy: { label: 'Energy', series: monthSeries(energyByMonth), total: kwh(totals.energyKwh, 0) + ' kWh', sub: `${kwh(totals.avgEnergyKwh, 1)} kWh avg per session`, fmt: FMT.energy },
   },
@@ -311,7 +311,7 @@ export function scaleRange(range: RangeView, share: number): RangeView {
   return {
     ...range,
     metrics: {
-      fees: { ...range.metrics.fees, series: fees, total: usd(f).replace('.00', ''), sub: `${usd(f / tx)} avg · ${int(tx)} transactions` },
+      fees: { ...range.metrics.fees, series: fees, total: usd(f).replace('.00', ''), sub: `${usd(f / tx)} avg, ${int(tx)} transactions` },
       sessions: { ...range.metrics.sessions, series: sessions, total: int(s) },
       energy: { ...range.metrics.energy, series: energy, total: int(e) + ' kWh', sub: `${kwh(s ? e / s : 0, 1)} kWh avg per session` },
     },

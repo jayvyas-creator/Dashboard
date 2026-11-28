@@ -552,8 +552,8 @@ export function OpsDashboard({ status = 'live', missing = {}, onRetry, initialPe
                     <i style={{ width: `${100 - onlinePct}%`, background: 'var(--offline)' }} />
                   </div>
                   <ul className={styles.legend}>
-                    <li><span className={styles.dotOff} />Offline<b>{stations.communication.offline}</b></li>
                     <li><span className={styles.dotOn} />Online<b>{stations.communication.online}</b></li>
+                    <li><span className={styles.dotOff} />Offline<b>{stations.communication.offline}</b></li>
                   </ul>
                   <div className={styles.cols}>
                     <div>
@@ -583,11 +583,11 @@ export function OpsDashboard({ status = 'live', missing = {}, onRetry, initialPe
                 </span>
                 <Gate onRetry={onRetry} s={slot('connectors')} kind="body">
                   <div className={styles.stack} role="img" aria-label="Connectors by status">
-                    <i style={{ width: `${availPct}%`, background: 'var(--accent)' }} />
+                    <i style={{ width: `${availPct}%`, background: 'var(--good)' }} />
                     <i style={{ width: `${connectorTotal ? (connectors.unavailable / connectorTotal) * 100 : 0}%`, background: 'var(--neutral)' }} />
                   </div>
                   <ul className={styles.statusRows}>
-                    <li><span style={{ background: 'var(--accent)' }} />Available<b className={zv(connectors.available)}>{connectors.available}</b></li>
+                    <li><span style={{ background: 'var(--good)' }} />Available<b className={zv(connectors.available)}>{connectors.available}</b></li>
                     <li><span style={{ background: 'var(--neutral)' }} />Unavailable<b className={zv(connectors.unavailable)}>{connectors.unavailable}</b></li>
                     <li><span className={styles.hollow} />Occupied<b className={zv(shown.occupied)}>{shown.occupied}</b></li>
                     <li><span className={styles.hollow} />Reserved<b className={zv(shown.reserved)}>{shown.reserved}</b></li>
