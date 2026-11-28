@@ -1,0 +1,140 @@
+:root {
+  /* Color — shadcn-standard semantic tokens, derived from Eves primary #3D3AD3.
+     Hue 274 (violet-blue) is reused across the neutral scale so surfaces read
+     as "brand-tinted" rather than flat gray, matching shadcn's tinted-neutral themes. */
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.145 0.01 274);
+
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.145 0.01 274);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.145 0.01 274);
+
+  --color-primary: oklch(0.465 0.225 274);
+  --color-primary-foreground: oklch(0.98 0.005 274);
+
+  --color-secondary: oklch(0.96 0.01 274);
+  --color-secondary-foreground: oklch(0.205 0.01 274);
+
+  --color-muted: oklch(0.96 0.01 274);
+  --color-muted-foreground: oklch(0.552 0.016 274);
+
+  --color-accent: oklch(0.96 0.01 274);
+  --color-accent-foreground: oklch(0.205 0.01 274);
+
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: oklch(0.985 0 0);
+
+  --color-border: oklch(0.93 0.01 274);
+  --color-input: oklch(0.9 0.01 274);
+  --color-ring: oklch(0.465 0.225 274);
+
+  /* Supplementary status colors — not part of the shadcn token set, kept for
+     alerts/toasts. Not derived from brand; swap for product needs as they arise. */
+  --color-success: #2e7d32;
+  --color-success-foreground: #ffffff;
+  --color-error: #d32f2f;
+  --color-warning: #ed6c02;
+  --color-info: #0288d1;
+
+  /* Typography — Bricolage Grotesque stack */
+  --font-family-base: var(--font-bricolage-grotesque), ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-family-heading: var(--font-family-base);
+  --font-family-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+  --font-family-numeric: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* Spacing — 8px grid. --space-1 (4px) and --space-3 (12px) are the only
+     half-steps, reserved for hairlines and compact/micro elements (icon
+     gaps, thin bars) — every other spacing, sizing, and layout value should
+     land on an 8px multiple, not an arbitrary pixel value. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* Shape and motion — shadcn's radius formula: everything derives from one base */
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --transition-fast: 150ms;
+  --transition-standard: 250ms;
+
+  /* Easing — Material-style curves. Standard for property changes that start and
+     end at rest (hover, focus); decelerate for things entering (popovers, dialogs
+     opening); accelerate for things leaving (popovers, dialogs closing). */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+  --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+
+  /* Elevation — a 5-step shadow scale shared by every floating/raised surface.
+     xs: resting cards. sm/md: popovers, menus, tooltips. lg/xl: sheets, dialogs.
+     -up variants mirror xl/lg for surfaces that open upward (e.g. bottom drawers). */
+  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.08), 0 1px 2px -1px rgb(15 23 42 / 0.08);
+  --shadow-md: 0 4px 6px -1px rgb(15 23 42 / 0.1), 0 2px 4px -2px rgb(15 23 42 / 0.1);
+  --shadow-lg: 0 10px 25px -5px rgb(15 23 42 / 0.12), 0 4px 10px -6px rgb(15 23 42 / 0.1);
+  --shadow-xl: 0 20px 40px -8px rgb(15 23 42 / 0.18), 0 8px 16px -8px rgb(15 23 42 / 0.12);
+  --shadow-lg-up: 0 -10px 25px -5px rgb(15 23 42 / 0.12), 0 -4px 10px -6px rgb(15 23 42 / 0.1);
+  --shadow-xl-up: 0 -20px 40px -8px rgb(15 23 42 / 0.18), 0 -8px 16px -8px rgb(15 23 42 / 0.12);
+}
+
+.dark {
+  --color-background: oklch(0.145 0.01 274);
+  --color-foreground: oklch(0.985 0.005 274);
+
+  --color-card: oklch(0.205 0.01 274);
+  --color-card-foreground: oklch(0.985 0.005 274);
+  --color-popover: oklch(0.269 0.01 274);
+  --color-popover-foreground: oklch(0.985 0.005 274);
+
+  --color-primary: oklch(0.6 0.22 274);
+  --color-primary-foreground: oklch(0.98 0 0);
+
+  --color-secondary: oklch(0.269 0.01 274);
+  --color-secondary-foreground: oklch(0.985 0.005 274);
+
+  --color-muted: oklch(0.269 0.01 274);
+  --color-muted-foreground: oklch(0.708 0.015 274);
+
+  --color-accent: oklch(0.269 0.01 274);
+  --color-accent-foreground: oklch(0.985 0.005 274);
+
+  --color-destructive: oklch(0.704 0.191 22.216);
+  --color-destructive-foreground: oklch(0.145 0.01 274);
+
+  --color-border: oklch(1 0 0 / 10%);
+  --color-input: oklch(1 0 0 / 15%);
+  --color-ring: oklch(0.6 0.22 274);
+
+  /* Elevation — dark surfaces need darker, less diffuse shadows to read against
+     a dark background, so opacity steps up vs. the light-mode scale. */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 25px -5px rgb(0 0 0 / 0.5), 0 4px 10px -6px rgb(0 0 0 / 0.45);
+  --shadow-xl: 0 20px 40px -8px rgb(0 0 0 / 0.6), 0 8px 16px -8px rgb(0 0 0 / 0.5);
+  --shadow-lg-up: 0 -10px 25px -5px rgb(0 0 0 / 0.5), 0 -4px 10px -6px rgb(0 0 0 / 0.45);
+  --shadow-xl-up: 0 -20px 40px -8px rgb(0 0 0 / 0.6), 0 -8px 16px -8px rgb(0 0 0 / 0.5);
+}

@@ -1064,3 +1064,31 @@ h1.title, .zoneTitle, .kpiLabel { text-wrap: balance; }
   .barTip { scale: 1; }
 }
 @media (max-width: 820px), (pointer: coarse) { .kbd { display: none; } }
+
+/* Errors card recreated: occurrences read as one timeline (uniform connectedness), newest at the top, the latest marked with a filled dot */
+.errTimes { position: relative; margin: 12px 0 0 15px; }
+.errTimes li { position: relative; padding: 5px 0 5px 24px; font-size: 13px; color: var(--muted); }
+.errTimes li::before { content: ''; position: absolute; left: 0; top: 50%; width: 9px; height: 9px; margin-top: -4.5px; border: 1.5px solid var(--bad); border-radius: 50%; background: var(--surface); z-index: 1; }
+.errTimes li::after { content: ''; position: absolute; left: 4px; top: 50%; bottom: -50%; width: 1px; background: var(--line); }
+.errTimes li:last-child::after { display: none; }
+.errTimes li:first-child { color: var(--text); font-weight: 500; }
+.errTimes li:first-child::before { background: var(--bad); }
+.errGroupHead { align-items: flex-start; }
+.errGroupHead .errCount { margin-top: 2px; }
+.errTimes li::after { left: 3.5px; width: 2px; top: calc(50% + 6px); bottom: calc(-50% + 6px); background: var(--bad-soft); }
+
+/* Errors card simplified: the three newest, one line each */
+.errList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.errList li { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.errList .errIcon { flex: none; width: 32px; height: 32px; border-radius: 9px; }
+.errList .errRowTitle { flex: 1; min-width: 0; }
+.errList time { flex: none; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.errMore { margin: 0; font-size: 12px; color: var(--muted); }
+.errList .errRowText { gap: 2px; }
+.errList time { font-size: 12px; }
+
+/* Design-system Sidebar adopted: the shell is the provider, brand and disabled rows keep the dashboard's look */
+.frame { display: flex; min-height: 0; background: var(--surface); overflow: clip; }
+.brandName { font-size: 16px; font-weight: 700; letter-spacing: 0.01em; color: var(--text); }
+.navSoon[data-slot='sidebar-menu-button'] { cursor: default; color: var(--muted); }
+.navSoon[data-slot='sidebar-menu-button']:hover { background: transparent; color: var(--muted); }

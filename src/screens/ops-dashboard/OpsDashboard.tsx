@@ -20,7 +20,6 @@ import {
   CreditCard,
   Download,
   Landmark,
-  PanelLeft,
   Layers,
   LayoutDashboard,
   Plug,
@@ -34,6 +33,19 @@ import {
   Zap,
 } from 'lucide-react'
 import { PERIOD } from '@/components/dashboard/data'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from '@/components/organisms/Sidebar'
 import dynamic from 'next/dynamic'
 import styles from './OpsDashboard.module.css'
 import { DATA_END, DATA_START, DEFAULT_RANGE, MAX_CUSTOM_DAYS, RANGES, customRange, parseISODate, rangeInsights, scaleRange, spanDays, toISODate } from './ranges'
@@ -256,10 +268,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
   const drawerRef = useRef<HTMLElement>(null)
   const [metric, setMetric] = useState<Metric>('fees')
   const [period, setPeriod] = useState(initialPeriod ?? PERIOD.label)
-  const [collapsed, setCollapsed] = useState(false)
-  // Below 820px the sidebar becomes an off-canvas drawer opened from the top bar.
-  const [mobile, setMobile] = useState(false)
-  const [navOpen, setNavOpen] = useState(false)
   const [siteOpen, setSiteOpen] = useState(false)
   const [selectedSites, setSelectedSites] = useState<string[]>(() => SITES.map((x) => x.id))
   const [siteQuery, setSiteQuery] = useState('')
@@ -298,9 +306,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
     window.addEventListener('keydown', onKey)
     return () => { window.removeEventListener('keydown', onKey); opener?.focus?.() }
   }, [detail, closeDetail])
-  useEffect(() => {
-    try { setCollapsed(localStorage.getItem('eves.sidebar') === '1') } catch {}
-  }, [])
   // The view lives in the URL (?range=…&from=…&to=…&sites=…) so a link reproduces it.
   const [urlReady, setUrlReady] = useState(false)
   useEffect(() => {
@@ -345,26 +350,6 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-  useEffect(() => {
-    const mql = window.matchMedia('(max-width: 820px)')
-    const sync = () => { setMobile(mql.matches); if (!mql.matches) setNavOpen(false) }
-    sync()
-    mql.addEventListener('change', sync)
-    return () => mql.removeEventListener('change', sync)
-  }, [])
-  useEffect(() => {
-    if (!navOpen) return
-    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setNavOpen(false) }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [navOpen])
-  const toggleSidebar = () => {
-    if (mobile) { setNavOpen((o) => !o); return }
-    setCollapsed((c) => {
-      try { localStorage.setItem('eves.sidebar', c ? '0' : '1') } catch {}
-      return !c
-    })
-  }
   useEffect(() => {
     if (!siteOpen) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSiteOpen(false)
@@ -464,44 +449,52 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
 
   return (
     <div className={`${styles.page} ${bricolage.variable}`}>
-      <div className={collapsed ? styles.frameCollapsed : styles.frame}>
-        {mobile && navOpen && <div className={styles.navScrim} onClick={() => setNavOpen(false)} />}
-        <aside id="primary-nav" className={`${collapsed && !mobile ? styles.sidebarCollapsed : styles.sidebar} ${navOpen ? styles.drawerOpen : ''}`}>
-          <div className={styles.brand}>
-            <span className={styles.brandMark}>
-              <Zap size={16} strokeWidth={2.4} />
-            </span>
-            <span className={styles.brandName}>EVES</span>
-          </div>
+      <SidebarProvider className={styles.frame}>
+        <Sidebar collapsible="icon">
+          <SidebarHeader>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton size="lg" tooltip="EVES" asChild>
+                  <a href="#" onClick={(e) => e.preventDefault()} aria-label="EVES home">
+                    <span className={styles.brandMark}>
+                      <Zap size={16} strokeWidth={2.4} />
+                    </span>
+                    <span className={styles.brandName}>EVES</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu aria-label="Primary">
+                  {NAV.map(({ label, icon: Icon, active }) => (
+                    <SidebarMenuItem key={label}>
+                      {active ? (
+                        <SidebarMenuButton isActive tooltip={label} asChild>
+                          <a href="#" onClick={(e) => e.preventDefault()} aria-current="page">
+                            <Icon size={16} strokeWidth={1.8} />
+                            <span>{navLabel(label)}</span>
+                          </a>
+                        </SidebarMenuButton>
+                      ) : (
+                        <SidebarMenuButton className={styles.navSoon} tooltip={`${label}, coming soon`} aria-disabled="true" tabIndex={-1}>
+                          <Icon size={16} strokeWidth={1.8} />
+                          <span>{navLabel(label)}</span>
+                        </SidebarMenuButton>
+                      )}
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+        </Sidebar>
 
-          <nav className={styles.nav} aria-label="Primary">
-            {NAV.map(({ label, icon: Icon, active }) => (
-              !active ? (
-                <span key={label} className={`${styles.navItem} ${styles.navSoon}`} aria-disabled="true" title={collapsed && !mobile ? `${label}, coming soon` : undefined}>
-                  <Icon size={16} strokeWidth={1.8} />
-                  <span>{navLabel(label)}</span>
-                  <small className={styles.soon}>Soon</small>
-                </span>
-              ) : <a key={label} href="#" onClick={(e) => { e.preventDefault(); setNavOpen(false) }} aria-current={active ? 'page' : undefined} title={label} aria-label={label} className={active ? styles.navItemActive : styles.navItem}>
-                <Icon size={16} strokeWidth={1.8} />
-                <span>{navLabel(label)}</span>
-              </a>
-            ))}
-          </nav>
-        </aside>
-
-        <div className={styles.mainCol}>
+        <SidebarInset className={styles.mainCol}>
           <header className={styles.topbar}>
-            <button
-              type="button"
-              className={styles.iconBtn}
-              onClick={toggleSidebar}
-              aria-label={(mobile ? navOpen : !collapsed) ? 'Collapse sidebar' : 'Expand sidebar'}
-              aria-expanded={mobile ? navOpen : !collapsed}
-              aria-controls="primary-nav"
-            >
-              <PanelLeft size={16} strokeWidth={1.8} />
-            </button>
+            <SidebarTrigger />
             <span className={styles.topDivider} />
             <nav aria-label="Breadcrumb">
               <ol className={styles.crumbs}>
@@ -511,7 +504,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
               </ol>
             </nav>
           </header>
-        <main className={styles.main}>
+        <div className={styles.main}>
           <header className={styles.header}>
             <div>
               <h1 className={styles.title}>Overview</h1>
@@ -567,7 +560,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
                 </span>
               )}
               <button type="button" className={styles.secondaryBtn} onClick={exportCsv}>
-                <Download size={14} strokeWidth={2} /> Export <span className={styles.acronym}>CSV</span>
+                <Download size={14} strokeWidth={2} /> Export
               </button>
             </div>
           </header>
@@ -585,11 +578,7 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
           )}
 
           {/* Zone 1: what is happening now. Never affected by the period. */}
-          <section className={styles.zone} aria-labelledby="now-h">
-            <div className={styles.zoneTitleGroup}>
-              <h2 id="now-h" className={styles.zoneTitle}>Right now</h2>
-              <span className={styles.zoneNote}>Live. The period below doesn’t change these.</span>
-            </div>
+          <section className={styles.zone} aria-label="Right now">
             <div className={styles.rowNow}>
               <div className={`${styles.tileCard} ${styles.clickable} ${styles.toneStations}`}>
                 <button type="button" className={styles.cardHit} aria-label="Open charging stations details" aria-haspopup="dialog" onClick={() => setDetail('stations')} />
@@ -833,40 +822,26 @@ export function OpsDashboard({ status = 'live', staleForMs = 0, missing = {}, on
             {errors.length === 0 && <p className={styles.inlineNote}>No errors reported. All clear.</p>}
             {errors.length > 0 && (
               <div className={styles.errFeed}>
-                <p className={styles.errLead}><b>{errors.length} recent {errors.length === 1 ? 'error' : 'errors'}.</b> {errorInfo(errors[0]?.type ?? '').action}</p>
-                {Array.from(new Set(errors.map((x) => x.type))).map((type) => {
-                  const info = errorInfo(type)
-                  const items = errors.filter((x) => x.type === type)
-                  return (
-                    <div key={type} className={styles.errGroupCard}>
-                      <div className={styles.errGroupHead}>
-                        <i className={styles.errIcon} aria-hidden><TriangleAlert size={16} /></i>
-                        <div className={styles.errRowText}>
-                          <span className={styles.errRowTitle}>{info.title}</span>
-                          <small>{info.note}</small>
-                        </div>
-                        <b className={styles.errCount}>{items.length}×</b>
+                <ul className={styles.errList}>
+                  {errors.slice(0, 3).map((x) => (
+                    <li key={x.id}>
+                      <i className={styles.errIcon} aria-hidden><TriangleAlert size={16} /></i>
+                      <div className={styles.errRowText}>
+                        <span className={styles.errRowTitle}>{errorInfo(x.type).title}</span>
+                        <time dateTime={x.iso}>{x.relative}</time>
                       </div>
-                      <ul className={styles.errTimes}>
-                        {items.map((x) => (
-                          <li key={x.id}>
-                            <time dateTime={x.iso}>{x.relative}</time>
-                            {x.id === errors[0]?.id && <b>Latest</b>}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )
-                })}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </Gate>
         </div>
           </section>
           </div>
-        </main>
         </div>
-      </div>
+        </SidebarInset>
+      </SidebarProvider>
 
       {detail && (
         <>
