@@ -1028,7 +1028,6 @@ h1.title, .zoneTitle, .kpiLabel { text-wrap: balance; }
 }
 .errLead, .errRowText { hyphens: auto; }
 .acronym { font-variant-caps: all-small-caps; letter-spacing: 0.04em; }
-sup { line-height: 0; position: relative; vertical-align: baseline; top: -0.5em; }
 
 /* Design laws pass: scope is visible (recognition), bar-linked rows are grouped (proximity, uniform connectedness) */
 .zoneNote { font-size: 13px; color: var(--muted); }
