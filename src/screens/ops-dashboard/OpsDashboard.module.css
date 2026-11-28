@@ -563,8 +563,6 @@ h1.title, .zoneTitle, .kpiLabel { text-wrap: balance; }
 .rowNow .cardHead { margin-bottom: 14px; }
 .toneConn .stack { margin-top: 2px; }
 .toneConn .statusRows { grid-template-columns: 1fr; gap: 0; margin-top: 14px; flex: 1; align-content: space-between; }
-.toneConn .statusRows li { padding: 6px 0; }
-.toneConn .statusRows li + li { border-top: 1px solid var(--line); }
 .toneType .typeRows { flex: 1; align-content: space-between; gap: 0; }
 .toneType .typeRows li { grid-template-columns: 104px 1fr 24px; gap: 8px; padding: 6px 0; }
 .toneType .typeRows li + li { border-top: 1px solid var(--line); }
@@ -581,8 +579,6 @@ h1.title, .zoneTitle, .kpiLabel { text-wrap: balance; }
 .seg:disabled { opacity: 0.6; }
 /* Quieter rows: dividers only between groups, not every row */
 .toneConn .statusRows li + li, .toneType .typeRows li + li { border-top: 0; }
-.toneConn .statusRows li:nth-child(2) { border-bottom: 1px solid var(--line); padding-bottom: 8px; }
-.toneConn .statusRows li:nth-child(3) { padding-top: 8px; }
 /* Bigger plug icons */
 .typeRows .typeName svg { width: 18px; height: 18px; }
 .toneType .typeRows li { grid-template-columns: 124px 1fr 24px; }
@@ -1031,7 +1027,6 @@ h1.title, .zoneTitle, .kpiLabel { text-wrap: balance; }
 
 /* Design laws pass: scope is visible (recognition), bar-linked rows are grouped (proximity, uniform connectedness) */
 .zoneNote { font-size: 13px; color: var(--muted); }
-.toneConn .statusRows li:nth-child(3), .toneConn .statusRows li:nth-child(4) { padding-top: 8px; border-top: 1px solid var(--line); }
 
 /* Design tips pass */
 .title { line-height: 1.15; }
@@ -1093,13 +1088,17 @@ h1.title, .zoneTitle, .kpiLabel { text-wrap: balance; }
 .navSoon[data-slot='sidebar-menu-button'] { cursor: default; color: var(--muted); }
 .navSoon[data-slot='sidebar-menu-button']:hover { background: transparent; color: var(--muted); }
 
-/* Errors card: one title, the times fill the card, chevron shows it opens */
+/* Errors card: recent errors, each with type, date and time, and an action */
 .errFeed { gap: 0; }
-.errTitleRow { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
-.errTitleRow .errIcon { flex: none; width: 32px; height: 32px; border-radius: 9px; }
-.errTitleRow .errRowTitle { flex: 1; min-width: 0; }
-.errTitleRow .chev { flex: none; color: var(--muted); }
 .errList { flex: 1; gap: 0; }
-.errList li { flex: 1; padding: 0; justify-content: space-between; }
+.errList li { flex: 1; padding: 0; gap: 12px; }
 .errList li + li { border-top: 1px solid var(--line); }
-.errList time { font-size: 14px; color: var(--text); }
+.errList time { font-size: 12px; color: var(--muted); }
+.errAction { position: relative; z-index: 2; flex: none; padding: 6px 0 6px 8px; border: 0; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; touch-action: manipulation; }
+.errAction:hover { text-decoration: underline; }
+.errAction:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* Connectors: one divider between the two groups, even spacing inside each */
+.toneConn .statusRows li { padding: 6px 0; border: 0; }
+.toneConn .statusRows li:nth-child(3) { padding-top: 12px; border-top: 1px solid var(--line); }
+.toneConn .statusRows li:nth-child(2) { padding-bottom: 12px; }

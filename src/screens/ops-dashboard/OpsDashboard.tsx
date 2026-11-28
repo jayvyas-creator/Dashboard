@@ -591,7 +591,7 @@ export function OpsDashboard({ status = 'live', missing = {}, onRetry, initialPe
                     <li><span style={{ background: 'var(--neutral)' }} />Unavailable<b className={zv(connectors.unavailable)}>{connectors.unavailable}</b></li>
                     <li><span className={styles.hollow} />Occupied<b className={zv(shown.occupied)}>{shown.occupied}</b></li>
                     <li><span className={styles.hollow} />Reserved<b className={zv(shown.reserved)}>{shown.reserved}</b></li>
-                    <li><span className={styles.hollow} />Faulted<b className={zv(shown.faulted)}>{shown.faulted}</b></li>
+                    <li><span style={{ background: 'var(--bad)' }} />Faulted<b className={zv(shown.faulted)}>{shown.faulted}</b></li>
                   </ul>
                 </Gate>
               </div>
@@ -776,29 +776,20 @@ export function OpsDashboard({ status = 'live', missing = {}, onRetry, initialPe
             {errors.length === 0 && <p className={styles.inlineNote}>No errors reported. All clear.</p>}
             {errors.length > 0 && (
               <div className={styles.errFeed}>
-                {(() => {
-                  const shown = errors.slice(0, 3)
-                  const same = shown.every((x) => x.type === shown[0]?.type)
-                  return (
-                    <>
-                      {same && (
-                        <div className={styles.errTitleRow}>
-                          <i className={styles.errIcon} aria-hidden><TriangleAlert size={16} /></i>
-                          <span className={styles.errRowTitle}>{errorInfo(shown[0]?.type ?? '').title}</span>
-                          <ChevronRight size={16} strokeWidth={1.9} className={styles.chev} aria-hidden="true" />
-                        </div>
-                      )}
-                      <ul className={styles.errList}>
-                        {shown.map((x) => (
-                          <li key={x.id}>
-                            {!same && <span className={styles.errRowTitle}>{errorInfo(x.type).title}</span>}
-                            <time dateTime={x.iso}>{x.relative}</time>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )
-                })()}
+                <ul className={styles.errList}>
+                  {errors.slice(0, 3).map((x) => (
+                    <li key={x.id}>
+                      <i className={styles.errIcon} aria-hidden><TriangleAlert size={16} /></i>
+                      <div className={styles.errRowText}>
+                        <span className={styles.errRowTitle}>{errorInfo(x.type).title}</span>
+                        <time dateTime={x.iso}>{x.relative}</time>
+                      </div>
+                      <button type="button" className={styles.errAction} onClick={() => setDetail('errors')} aria-haspopup="dialog">
+                        View details
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </Gate>
